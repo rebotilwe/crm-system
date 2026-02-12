@@ -8,6 +8,7 @@ const fs = require("fs");
 const csv = require("csv-parse");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const PORT = process.env.PORT || 5000;
 
 const app = express();
 app.use(cors());
@@ -366,6 +367,7 @@ app.delete("/api/admins/:id", verifyToken, (req, res) => {
 // =====================
 // Start Server
 // =====================
-app.listen(process.env.PORT, () => {
-  console.log("Server running on port", process.env.PORT);
+
+app.listen(PORT, () => {
+  console.log("Server running on port", PORT);
 });
