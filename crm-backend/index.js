@@ -57,58 +57,32 @@ app.get("/test-db", (req, res) => {
 // Admin Login
 app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
-  
-  console.log('=== LOGIN ATTEMPT ===');
-  console.log('Email:', email);
-  console.log('Password received:', password ? '✓' : '✗');
-  
-  if (!email || !password) {
-    console.log('❌ Missing fields');
+
+  if (!email || !password)
     return res.status(400).json({ message: "All fields required" });
-  }
 
-  const sql = `
-    SELECT * FROM users 
-    WHERE email = ? 
-      AND role IN ('super_admin','admin','controller')
-  `;
+  try {
+    const sql = `
+      SELECT * FROM users 
+      WHERE email = ? 
+        AND role IN ('super_admin','admin','controller')
+    `;
+    const [results] = await db.query(sql, [email]);
 
-  db.query(sql, [email], async (err, results) => {
-    if (err) {
-      console.log('❌ Database error:', err);
-      return res.status(500).json(err);
-    }
-
-    console.log('📊 Database results count:', results.length);
-    
-    if (results.length === 0) {
-      console.log('❌ User not found');
+    if (results.length === 0)
       return res.status(401).json({ message: "Invalid email or password" });
-    }
 
     const user = results[0];
-    console.log('✅ User found:', user.email);
-    console.log('🔐 Stored hash:', user.password.substring(0, 20) + '...');
-    
-    // Compare hashed password
-    console.log('🔄 Comparing passwords...');
     const isMatch = await bcrypt.compare(password, user.password);
-    console.log('🔑 Password match:', isMatch);
 
-    if (!isMatch) {
-      console.log('❌ Password mismatch');
+    if (!isMatch)
       return res.status(401).json({ message: "Invalid email or password" });
-    }
 
-    // Create JWT token
     const token = jwt.sign(
       { id: user.id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
-
-    console.log('✅ Login successful!');
-    console.log('=====================\n');
 
     res.json({
       message: "Login successful",
@@ -119,8 +93,12 @@ app.post("/api/auth/login", async (req, res) => {
         role: user.role,
       },
     });
-  });
+  } catch (err) {
+    console.error("Login Error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
 });
+
 
 
 // =====================
