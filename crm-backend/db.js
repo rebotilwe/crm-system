@@ -1,6 +1,4 @@
 const mysql = require("mysql2");
-
-// Use env variables from .env
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -12,6 +10,13 @@ const pool = mysql.createPool({
   queueLimit: 0,
 });
 
-const db = pool.promise();
+pool.getConnection((err, conn) => {
+  if (err) console.error("DB connection failed:", err);
+  else {
+    console.log("Database connected ✅");
+    conn.release();
+  }
+});
 
+const db = pool.promise();
 module.exports = db;
