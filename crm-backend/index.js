@@ -342,6 +342,18 @@ app.delete("/api/admins/:id", verifyToken, (req, res) => {
   });
 });
 
+// Test DB connection
+app.get("/test-db", async (req, res) => {
+  try {
+    const [rows] = await db.query("SELECT DATABASE() AS db");
+    res.json({ message: "DB connected ✅", db: rows[0].db });
+  } catch (err) {
+    console.error("DB ERROR:", err);
+    res.status(500).json({ message: "DB connection failed", error: err });
+  }
+});
+
+
 // =====================
 // Start Server
 // =====================
