@@ -1,3 +1,4 @@
+// db.js
 const mysql = require("mysql2");
 
 const pool = mysql.createPool({
@@ -11,5 +12,5 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-const db = pool.promise(); // <-- use async/await
+const db = pool.promise(); // use async/await for queries
 module.exports = db;
