@@ -1,33 +1,30 @@
 const mysql = require("mysql2");
 require("dotenv").config();
 
-// IMPORTANT: For Railway, use just "mysql" as the hostname
 const pool = mysql.createPool({
-  host: "mysql",  // NOT mysql.railway.internal, just "mysql"
-  user: process.env.DB_USER || "root",
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
   password: process.env.DB_PASS,
-  database: process.env.DB_NAME || "railway",
-  port: parseInt(process.env.DB_PORT || 3306),
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  connectTimeout: 30000
+  connectTimeout: 10000, // 10 seconds timeout
 });
 
 const db = pool.promise();
 
 // Test connection
-(async () => {
-  try {
-    const connection = await db.getConnection();
-    console.log("✅ Database connected successfully via private network!");
-    console.log(`📍 Connected to: mysql:${process.env.DB_PORT || 3306}`);
-    connection.release();
-  } catch (err) {
+pool.getConnection((err, conn) => {
+  if (err) {
     console.error("❌ Database connection failed:");
-    console.error(`Error: ${err.message}`);
-    console.error(`Code: ${err.code}`);
+    console.error("Error code:", err.code);
+    console.error("Error message:", err.message);
+  } else {
+    console.log("✅ Database connected successfully!");
+    conn.release();
   }
-})();
+});
 
 module.exports = db;
