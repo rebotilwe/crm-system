@@ -1,22 +1,24 @@
+// db.js
 const mysql = require("mysql2");
 require("dotenv").config();
 
+// Create a MySQL connection pool using env variables
 const pool = mysql.createPool({
-  host: process.env.DB_HOST,      // From .env (Railway MYSQLHOST)
-  user: process.env.DB_USER,      // From .env (Railway MYSQLUSER)
-  password: process.env.DB_PASS,  // From .env (Railway MYSQLPASSWORD)
-  database: process.env.DB_NAME,  // From .env (Railway MYSQL_DATABASE)
-  port: process.env.DB_PORT || 3306,
+  host: process.env.DB_HOST,          // DB host from .env
+  user: process.env.DB_USER,          // DB user from .env
+  password: process.env.DB_PASS,      // DB password from .env
+  database: process.env.DB_NAME,      // DB name from .env
+  port: Number(process.env.DB_PORT) || 3306, // DB port from .env
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  connectTimeout: 10000 // 10 seconds timeout
+  connectTimeout: 10000, // 10 seconds
 });
 
-// Promisified pool for async/await
+// Promisified pool for async/await queries
 const db = pool.promise();
 
-// Test connection
+// Test the connection
 pool.getConnection((err, conn) => {
   if (err) {
     console.error("❌ Database connection failed:");
