@@ -37,10 +37,11 @@ const Reports = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const res = await axios.get("http://localhost:5000/api/dashboard/stats", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
+       const res = await axios.get(
+  "https://crm-system-staging-626e.up.railway.app/api/dashboard/stats",
+  { headers: { Authorization: `Bearer ${token}` } }
+);
+
       // Calculate additional stats
       const totalClients = res.data.clients || 0;
       setStats({

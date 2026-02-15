@@ -30,9 +30,13 @@ const Profile = () => {
         setLoading(true);
         setError(null);
         const token = localStorage.getItem("token");
-        const res = await axios.get(`http://localhost:5000/api/clients/${id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+     const res = await axios.get(
+  `https://crm-system-staging-626e.up.railway.app/api/clients/${id}`,
+  {
+    headers: { Authorization: `Bearer ${token}` }
+  }
+);
+
         setClient(res.data);
       } catch (err) {
         console.error(err);

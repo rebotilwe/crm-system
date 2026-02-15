@@ -29,9 +29,13 @@ const Admins = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const res = await axios.get("http://localhost:5000/api/admins", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+  // Fetch admins
+const res = await axios.get(
+  "https://crm-system-staging-626e.up.railway.app/api/admins",
+  { headers: { Authorization: `Bearer ${token}` } }
+);
+
+
       setAdmins(res.data);
     } catch (err) {
       console.error(err);
@@ -44,11 +48,13 @@ const Admins = () => {
     e.preventDefault();
     try {
       const token = localStorage.getItem("token");
-      await axios.post(
-        "http://localhost:5000/api/admins",
-        form,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+   // Add admin
+await axios.post(
+  "https://crm-system-staging-626e.up.railway.app/api/admins",
+  form,
+  { headers: { Authorization: `Bearer ${token}` } }
+);
+
       setForm({ name: "", email: "", password: "" });
       fetchAdmins();
     } catch (err) {
@@ -61,9 +67,11 @@ const Admins = () => {
     if (!window.confirm("Are you sure you want to delete this admin?")) return;
     try {
       const token = localStorage.getItem("token");
-      await axios.delete(`http://localhost:5000/api/admins/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+   await axios.delete(
+  `https://crm-system-staging-626e.up.railway.app/api/admins/${id}`,
+  { headers: { Authorization: `Bearer ${token}` } }
+);
+
       fetchAdmins();
     } catch (err) {
       console.error(err);

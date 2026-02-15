@@ -32,7 +32,10 @@ const Search = () => {
   const fetchAllClients = async () => {
     try {
       setLoading(true);
-      const res = await axios.get("http://localhost:5000/api/clients");
+     const res = await axios.get(
+  "https://crm-system-staging-626e.up.railway.app/api/clients"
+);
+
       setResults(res.data);
     } catch (err) {
       console.error(err);
@@ -44,9 +47,10 @@ const Search = () => {
   const fetchClients = async (searchTerm) => {
     try {
       setLoading(true);
-      const res = await axios.get(
-        `http://localhost:5000/api/clients?search=${searchTerm}`
-      );
+   const res = await axios.get(
+  `https://crm-system-staging-626e.up.railway.app/api/clients?search=${searchTerm}`
+);
+
       setResults(res.data);
     } catch (err) {
       console.error(err);
@@ -72,7 +76,10 @@ const Search = () => {
     if (!window.confirm("Are you sure you want to delete this client?")) return;
 
     try {
-      await axios.delete(`http://localhost:5000/api/clients/${id}`);
+    await axios.delete(
+  `https://crm-system-staging-626e.up.railway.app/api/clients/${id}`
+);
+
       setResults(results.filter((c) => c.id !== id));
     } catch (err) {
       console.error(err);
@@ -109,9 +116,12 @@ const Search = () => {
       const formData = new FormData();
       formData.append("file", csvFile);
 
-      await axios.post("http://localhost:5000/api/clients/bulk", formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
+   await axios.post(
+  "https://crm-system-staging-626e.up.railway.app/api/clients/bulk",
+  formData,
+  { headers: { "Content-Type": "multipart/form-data" } }
+);
+
 
       alert("Clients uploaded successfully!");
       setCsvFile(null);

@@ -39,7 +39,10 @@ const AddClient = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await axios.post("http://localhost:5000/api/clients", formData);
+    const res = await axios.post(
+  "https://crm-system-staging-626e.up.railway.app/api/clients",
+  formData
+);
       alert(`Client added successfully! ID: ${res.data.id}`);
       navigate("/");
     } catch (err) {

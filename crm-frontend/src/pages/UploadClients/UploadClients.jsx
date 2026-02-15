@@ -52,9 +52,14 @@ const UploadClients = () => {
     formData.append("file", file);
 
     try {
-      const res = await axios.post("http://localhost:5000/api/clients/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
+   const res = await axios.post(
+  "https://crm-system-staging-626e.up.railway.app/api/clients/upload",
+  formData,
+  {
+    headers: { "Content-Type": "multipart/form-data" }
+  }
+);
+
       setResult(res.data);
     } catch (err) {
       console.error(err);

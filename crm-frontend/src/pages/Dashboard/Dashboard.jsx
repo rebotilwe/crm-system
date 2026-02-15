@@ -45,10 +45,11 @@ const Dashboard = () => {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(
-        "http://localhost:5000/api/dashboard/stats",
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+   const res = await axios.get(
+  "https://crm-system-staging-626e.up.railway.app/api/dashboard/stats",
+  { headers: { Authorization: `Bearer ${token}` } }
+);
+
       setStats(res.data);
     } catch (err) {
       console.error(err);
@@ -62,10 +63,11 @@ const Dashboard = () => {
     try {
       setChartLoading(true);
       const token = localStorage.getItem("token");
-      const res = await axios.get(
-        "http://localhost:5000/api/dashboard/clients-per-month",
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+   const res = await axios.get(
+  "https://crm-system-staging-626e.up.railway.app/api/dashboard/clients-per-month",
+  { headers: { Authorization: `Bearer ${token}` } }
+);
+
       setChartData(res.data);
     } catch (err) {
       console.error(err);
