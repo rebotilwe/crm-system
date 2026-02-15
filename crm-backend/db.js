@@ -25,7 +25,7 @@ pool.getConnection((err, conn) => {
     console.error("Error code:", err.code);
     console.error("Error message:", err.message);
   } else {
-    console.log("✅ Database connected successfully!");
+    console.log("✅ Database connected successfully!!!");
     conn.release();
   }
 });
