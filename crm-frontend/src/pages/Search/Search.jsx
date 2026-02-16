@@ -1,403 +1,281 @@
-import { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import {
-  Search as SearchIcon,
-  UserPlus,
-  Edit,
-  Trash2,
-  Users,
-  Phone,
-  Building2,
-  User,
-  FileText,
-  UploadCloud,
-  CheckCircle,
-  XCircle
-} from "lucide-react";
-import "./Search.css";
 
 const Search = () => {
-  const [query, setQuery] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+
   const [csvFile, setCsvFile] = useState(null);
   const [csvData, setCsvData] = useState([]);
+
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchAllClients();
-  }, []);
+  // Get token
+  const token = localStorage.getItem("token");
 
+  // If no token → redirect
+  useEffect(() => {
+    if (!token) {
+      navigate("/login");
+    }
+  }, [token, navigate]);
+
+  // ===============================
+  // FETCH ALL CLIENTS
+  // ===============================
   const fetchAllClients = async () => {
     try {
       setLoading(true);
-     const res = await axios.get(
-  "https://crm-system-staging-626e.up.railway.app/api/clients"
-);
+
+      const res = await axios.get(
+        "https://crm-system-staging-626e.up.railway.app/api/clients",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       setResults(res.data);
     } catch (err) {
-      console.error(err);
+      console.error("Fetch All Error:", err);
+
+      if (err.response?.status === 401) {
+        localStorage.clear();
+        navigate("/login");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchClients = async (searchTerm) => {
-    try {
-      setLoading(true);
-   const res = await axios.get(
-  `https://crm-system-staging-626e.up.railway.app/api/clients?search=${searchTerm}`
-);
-
-      setResults(res.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!query) {
+  // ===============================
+  // SEARCH CLIENTS
+  // ===============================
+  const fetchClients = async (term) => {
+    if (!term.trim()) {
       fetchAllClients();
       return;
     }
 
-    const delayDebounce = setTimeout(() => {
-      fetchClients(query);
-    }, 300);
+    try {
+      setLoading(true);
 
-    return () => clearTimeout(delayDebounce);
-  }, [query]);
+      const res = await axios.get(
+        `https://crm-system-staging-626e.up.railway.app/api/clients?search=${term}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
+      setResults(res.data);
+    } catch (err) {
+      console.error("Search Error:", err);
+
+      if (err.response?.status === 401) {
+        localStorage.clear();
+        navigate("/login");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ===============================
+  // DELETE CLIENT
+  // ===============================
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this client?")) return;
 
     try {
-    await axios.delete(
-  `https://crm-system-staging-626e.up.railway.app/api/clients/${id}`
-);
+      await axios.delete(
+        `https://crm-system-staging-626e.up.railway.app/api/clients/${id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       setResults(results.filter((c) => c.id !== id));
     } catch (err) {
-      console.error(err);
-      alert("Error deleting client");
+      console.error("Delete Error:", err);
+
+      if (err.response?.status === 401) {
+        localStorage.clear();
+        navigate("/login");
+      } else {
+        alert("Failed to delete client");
+      }
     }
   };
 
+  // ===============================
+  // CSV FILE CHANGE
+  // ===============================
   const handleCsvChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setCsvFile(file);
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target.result;
-        const rows = text.split("\n").map((row) => row.split(","));
-        const headers = rows.shift();
-        const data = rows.map((row) =>
-          headers.reduce((obj, header, i) => {
-            obj[header.trim()] = row[i]?.trim() || "";
-            return obj;
-          }, {})
-        ).filter(row => Object.values(row).some(val => val !== ""));
-        setCsvData(data);
-      };
-      reader.readAsText(file);
-    }
+    if (!file) return;
+
+    setCsvFile(file);
+
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      const text = event.target.result;
+      const rows = text.split("\n").map((row) => row.split(","));
+      setCsvData(rows);
+    };
+
+    reader.readAsText(file);
   };
 
+  // ===============================
+  // UPLOAD CSV
+  // ===============================
   const handleCsvSubmit = async () => {
-    if (!csvFile) return alert("Please select a CSV file first!");
+    if (!csvFile) {
+      alert("Please select a CSV file first!");
+      return;
+    }
 
     try {
       const formData = new FormData();
       formData.append("file", csvFile);
 
-   await axios.post(
-  "https://crm-system-staging-626e.up.railway.app/api/clients/bulk",
-  formData,
-  { headers: { "Content-Type": "multipart/form-data" } }
-);
-
+      await axios.post(
+        "https://crm-system-staging-626e.up.railway.app/api/clients/upload",
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
 
       alert("Clients uploaded successfully!");
+
       setCsvFile(null);
       setCsvData([]);
+
       fetchAllClients();
     } catch (err) {
-      console.error(err);
-      alert("Error uploading CSV");
+      console.error("CSV Upload Error:", err);
+
+      if (err.response?.status === 401) {
+        localStorage.clear();
+        navigate("/login");
+      } else {
+        alert("Error uploading CSV");
+      }
     }
   };
 
-  const clearSearch = () => {
-    setQuery("");
+  // ===============================
+  // LOAD ON PAGE OPEN
+  // ===============================
+  useEffect(() => {
+    fetchAllClients();
+  }, []);
+
+  // ===============================
+  // HANDLE SEARCH INPUT
+  // ===============================
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+
+    setSearchTerm(value);
+    fetchClients(value);
   };
 
+  // ===============================
+  // UI
+  // ===============================
   return (
-    <div className="search-container">
-      <div className="page-header">
-        <h1 className="page-title">Client Directory</h1>
-        <p className="page-subtitle">
-          <span className="status-dot"></span>
-          Manage and search your client database
-        </p>
+    <div className="p-6">
+
+      <h2 className="text-2xl font-bold mb-4">Search Clients</h2>
+
+      {/* Search Input */}
+      <input
+        type="text"
+        placeholder="Search by name, email, phone..."
+        value={searchTerm}
+        onChange={handleSearchChange}
+        className="border p-2 w-full mb-4 rounded"
+      />
+
+      {/* CSV Upload */}
+      <div className="mb-6">
+        <input
+          type="file"
+          accept=".csv"
+          onChange={handleCsvChange}
+          className="mb-2"
+        />
+
+        <button
+          onClick={handleCsvSubmit}
+          className="bg-blue-600 text-white px-4 py-2 rounded ml-2"
+        >
+          Upload CSV
+        </button>
       </div>
 
-      {/* Action Bar */}
-      <div className="action-bar">
-        <div className="action-buttons">
-          <button
-            onClick={() => navigate("/add-client")}
-            className="btn-primary"
-          >
-            <UserPlus />
-            Add New Client
-          </button>
+      {/* Loading */}
+      {loading && <p>Loading...</p>}
 
-          <label className="btn-success">
-            <UploadCloud />
-            Upload CSV
-            <input
-              type="file"
-              accept=".csv"
-              onChange={handleCsvChange}
-              hidden
-            />
-          </label>
-        </div>
+      {/* Results Table */}
+      {!loading && results.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse border">
 
-        <div className="total-badge">
-          <span className="total-label">Total Clients:</span>
-          <span className="total-count">{results.length}</span>
-        </div>
-      </div>
+            <thead>
+              <tr className="bg-gray-200">
+                <th className="border p-2">ID</th>
+                <th className="border p-2">Business Name</th>
+                <th className="border p-2">Owner</th>
+                <th className="border p-2">Phone</th>
+                <th className="border p-2">Email</th>
+                <th className="border p-2">Actions</th>
+              </tr>
+            </thead>
 
-      {/* CSV Preview */}
-      {csvData.length > 0 && (
-        <div className="csv-preview">
-          <div className="preview-header">
-            <div className="preview-title">
-              <CheckCircle />
-              <h3>CSV Preview</h3>
-            </div>
-            <span className="preview-stats">
-              {csvData.length} rows ready
-            </span>
-          </div>
-          
-          <div className="preview-table-container">
-            <table className="preview-table">
-              <thead>
-                <tr>
-                  {Object.keys(csvData[0]).map((header) => (
-                    <th key={header}>{header}</th>
-                  ))}
+            <tbody>
+              {results.map((client) => (
+                <tr key={client.id}>
+                  <td className="border p-2">{client.id}</td>
+                  <td className="border p-2">{client.business_name}</td>
+                  <td className="border p-2">{client.owner_name}</td>
+                  <td className="border p-2">{client.owner_phone}</td>
+                  <td className="border p-2">{client.owner_email}</td>
+
+                  <td className="border p-2 text-center">
+                    <button
+                      onClick={() => handleDelete(client.id)}
+                      className="bg-red-600 text-white px-3 py-1 rounded"
+                    >
+                      Delete
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {csvData.slice(0, 5).map((row, index) => (
-                  <tr key={index}>
-                    {Object.values(row).map((val, i) => (
-                      <td key={i}>{val}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          {csvData.length > 5 && (
-            <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.75rem', textAlign: 'center' }}>
-              Showing first 5 rows of {csvData.length} total rows
-            </p>
-          )}
-          
-          <div className="preview-actions">
-            <button onClick={handleCsvSubmit} className="btn-submit-csv">
-              <UploadCloud size={16} />
-              Submit CSV
-            </button>
-          </div>
+              ))}
+            </tbody>
+
+          </table>
         </div>
       )}
 
-      {/* Search Card */}
-      <div className="search-card">
-        <div className="search-wrapper">
-          <SearchIcon className="search-icon" size={20} />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by business name, owner name or phone number..."
-            className="search-input"
-          />
-          {query && (
-            <button onClick={clearSearch} className="clear-search">
-              <XCircle size={18} />
-            </button>
-          )}
-        </div>
-        
-        <div className="search-stats">
-          <div className="total-badge">
-            <span className="total-label">Showing:</span>
-            <span className="total-count">{results.length} clients</span>
-          </div>
-          {query && (
-            <div className="search-query">
-              Results for "<strong>{query}</strong>"
-            </div>
-          )}
-        </div>
-      </div>
+      {!loading && results.length === 0 && (
+        <p>No clients found.</p>
+      )}
 
-      {/* Results Card */}
-      <div className="results-card">
-        {loading ? (
-          <div className="loading-state">
-            <div className="spinner-large"></div>
-            <p>Loading clients...</p>
-          </div>
-        ) : results.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">
-              <Users />
-            </div>
-            <h3>No clients yet</h3>
-            <p>Add your first client to get started</p>
-            <button
-              onClick={() => navigate("/add-client")}
-              className="btn-primary"
-            >
-              <UserPlus />
-              Add New Client
-            </button>
-          </div>
-        ) : (
-          <>
-            {/* Desktop Table View */}
-            <div className="desktop-table">
-              <table className="client-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Building2 size={16} /> Business Name
-                      </div>
-                    </th>
-                    <th>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <User size={16} /> Owner
-                      </div>
-                    </th>
-                    <th>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Phone size={16} /> Phone
-                      </div>
-                    </th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {results.map((client, index) => (
-                    <tr key={client.id}>
-                      <td style={{ color: '#64748b', fontWeight: 500 }}>{index + 1}</td>
-                      <td>
-                        <button
-                          onClick={() => navigate(`/client/${client.id}`)}
-                          className="business-name"
-                        >
-                          {client.business_name}
-                        </button>
-                      </td>
-                      <td>{client.owner_name}</td>
-                      <td>
-                        <a href={`tel:${client.owner_phone}`} className="phone-link">
-                          <Phone size={14} />
-                          {client.owner_phone}
-                        </a>
-                      </td>
-                      <td>
-                        <div className="action-group">
-                          <button
-                            onClick={() => navigate(`/edit-client/${client.id}`)}
-                            className="btn-edit"
-                          >
-                            <Edit size={16} />
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(client.id)}
-                            className="btn-delete"
-                          >
-                            <Trash2 size={16} />
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile Card View */}
-            <div className="mobile-cards">
-              {results.map((client, index) => (
-                <div key={client.id} className="client-card">
-                  <div className="card-header">
-                    <span className="client-number">#{index + 1}</span>
-                    <button
-                      onClick={() => navigate(`/client/${client.id}`)}
-                      className="client-name-mobile"
-                    >
-                      {client.business_name}
-                    </button>
-                  </div>
-                  
-                  <div className="client-details">
-                    <div className="detail-item">
-                      <User size={16} />
-                      <span className="detail-label">Owner:</span>
-                      <span>{client.owner_name}</span>
-                    </div>
-                    <div className="detail-item">
-                      <Phone size={16} />
-                      <span className="detail-label">Phone:</span>
-                      <a href={`tel:${client.owner_phone}`} style={{ color: '#2563eb', textDecoration: 'none' }}>
-                        {client.owner_phone}
-                      </a>
-                    </div>
-                  </div>
-                  
-                  <div className="mobile-actions">
-                    <button
-                      onClick={() => navigate(`/edit-client/${client.id}`)}
-                      className="btn-edit"
-                    >
-                      <Edit size={16} />
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(client.id)}
-                      className="btn-delete"
-                    >
-                      <Trash2 size={16} />
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
     </div>
   );
 };

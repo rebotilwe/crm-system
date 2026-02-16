@@ -35,23 +35,46 @@ const AddClient = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-    const res = await axios.post(
-  "https://crm-system-staging-626e.up.railway.app/api/clients",
-  formData
-);
-      alert(`Client added successfully! ID: ${res.data.id}`);
-      navigate("/");
-    } catch (err) {
-      console.error(err);
-      alert("Error adding client. Please try again.");
-    } finally {
-      setLoading(false);
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+
+  try {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      alert("Session expired. Please login again.");
+      navigate("/login");
+      return;
     }
-  };
+
+    const res = await axios.post(
+      "https://crm-system-staging-626e.up.railway.app/api/clients",
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    alert(`Client added successfully! ID: ${res.data.id}`);
+    navigate("/");
+  } catch (err) {
+    console.error("Add Client Error:", err.response || err);
+
+    if (err.response?.status === 401) {
+      alert("Session expired. Please login again.");
+      localStorage.clear();
+      navigate("/login");
+    } else {
+      alert("Error adding client. Please try again.");
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const formSections = [
     {
