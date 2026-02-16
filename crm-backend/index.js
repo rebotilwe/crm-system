@@ -371,6 +371,200 @@ app.get("/api/dashboard/stats", verifyToken, async (req, res) => {
     res.status(500).json(err);
   }
 });
+/* =====================
+   Dashboard
+===================== */
+
+app.get("/api/dashboard/stats", verifyToken, async (req, res) => {
+  try {
+    const [clientRes] = await db.query(
+      "SELECT COUNT(*) AS totalClients FROM clients"
+    );
+
+    const [adminRes] = await db.query(
+      "SELECT COUNT(*) AS totalAdmins FROM users WHERE role = 'admin'"
+    );
+
+    res.json({
+      clients: clientRes[0].totalClients,
+      admins: adminRes[0].totalAdmins,
+    });
+
+  } catch (err) {
+    res.status(500).json(err);
+  }
+});
+
+// ADD THIS NEW ENDPOINT for clients per month
+app.get("/api/dashboard/clients-per-month", verifyToken, async (req, res) => {
+  try {
+    // This query groups clients by month and year
+    const query = `
+      SELECT 
+        DATE_FORMAT(created_at, '%b') as name,
+        MONTH(created_at) as month_num,
+        YEAR(created_at) as year,
+        COUNT(*) as clients
+      FROM clients
+      WHERE created_at IS NOT NULL
+      GROUP BY YEAR(created_at), MONTH(created_at), DATE_FORMAT(created_at, '%b')
+      ORDER BY YEAR(created_at) DESC, MONTH(created_at) DESC
+      LIMIT 12
+    `;
+
+    const [results] = await db.query(query);
+    
+    // If no data, return empty array
+    if (results.length === 0) {
+      return res.json([]);
+    }
+
+    // Reverse to show chronological order
+    res.json(results.reverse());
+  } catch (err) {
+    console.error("Error fetching monthly clients:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+/* =====================
+   User Profile Routes
+===================== */
+
+// Get current user profile
+app.get("/api/auth/me", verifyToken, async (req, res) => {
+  try {
+    const [results] = await db.query(
+      "SELECT id, name, email, role, department, phone, location, employee_id, security_level, last_login, created_at FROM users WHERE id = ?",
+      [req.user.id]
+    );
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(results[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update user profile
+app.put("/api/auth/profile", verifyToken, async (req, res) => {
+  const { name, phone, location, department } = req.body;
+
+  try {
+    const sql = `
+      UPDATE users 
+      SET name = ?, phone = ?, location = ?, department = ?
+      WHERE id = ?
+    `;
+
+    const [result] = await db.query(sql, [name, phone, location, department, req.user.id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({ message: "Profile updated successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Change password
+app.put("/api/auth/change-password", verifyToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  try {
+    // Get current user with password
+    const [results] = await db.query(
+      "SELECT password FROM users WHERE id = ?",
+      [req.user.id]
+    );
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const user = results[0];
+
+    // Verify current password
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: "Current password is incorrect" });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    await db.query(
+      "UPDATE users SET password = ? WHERE id = ?",
+      [hashedPassword, req.user.id]
+    );
+
+    res.json({ message: "Password updated successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update notification preferences
+app.put("/api/auth/notifications", verifyToken, async (req, res) => {
+  const { email_notifications, client_alerts, system_updates, security_alerts } = req.body;
+
+  try {
+    const sql = `
+      UPDATE users 
+      SET email_notifications = ?, 
+          client_alerts = ?, 
+          system_updates = ?, 
+          security_alerts = ?
+      WHERE id = ?
+    `;
+
+    await db.query(sql, [
+      email_notifications || false,
+      client_alerts || false,
+      system_updates || false,
+      security_alerts || false,
+      req.user.id
+    ]);
+
+    res.json({ message: "Notification preferences updated" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update user preferences
+app.put("/api/auth/preferences", verifyToken, async (req, res) => {
+  const { dark_mode, language, sound_effects, time_format } = req.body;
+
+  try {
+    const sql = `
+      UPDATE users 
+      SET dark_mode = ?, 
+          language = ?, 
+          sound_effects = ?, 
+          time_format = ?
+      WHERE id = ?
+    `;
+
+    await db.query(sql, [
+      dark_mode || false,
+      language || 'en',
+      sound_effects || false,
+      time_format || '24h',
+      req.user.id
+    ]);
+
+    res.json({ message: "Preferences updated" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 /* =====================
    Start Server

@@ -45,13 +45,8 @@ import "./Dashboard.css";
 
 const Dashboard = () => {
   const [stats, setStats] = useState({ 
-    clients: 156, 
-    admins: 8,
-    activeClients: 132,
-    pendingClients: 24,
-    monthlyGrowth: 12.5,
-    securityScore: 98,
-    threatsBlocked: 1247
+    clients: 0, 
+    admins: 0
   });
   const [chartData, setChartData] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
@@ -73,14 +68,6 @@ const Dashboard = () => {
     fetchStats();
     fetchChartData();
     fetchRecentActivity();
-    
-    // Set loading to false after a timeout in case API fails
-    const timer = setTimeout(() => {
-      setLoading(false);
-      setChartLoading(false);
-    }, 2000);
-    
-    return () => clearTimeout(timer);
   }, []);
 
   const fetchStats = async () => {
@@ -93,19 +80,19 @@ const Dashboard = () => {
       
       if (res.data) {
         setStats({
-          clients: res.data.clients || 156,
-          admins: res.data.admins || 8,
-          activeClients: Math.round((res.data.clients || 156) * 0.85),
-          pendingClients: Math.round((res.data.clients || 156) * 0.15),
-          monthlyGrowth: 12.5,
-          securityScore: 98,
-          threatsBlocked: 1247
+          clients: res.data.clients || 0,
+          admins: res.data.admins || 0
         });
+        setApiError(false);
       }
     } catch (err) {
       console.error("Error fetching stats:", err);
       setApiError(true);
-      // Keep using default stats
+      // Set default values on error
+      setStats({
+        clients: 156,
+        admins: 8
+      });
     } finally {
       setLoading(false);
     }
@@ -115,6 +102,7 @@ const Dashboard = () => {
     try {
       setChartLoading(true);
       const token = localStorage.getItem("token");
+      
       const res = await axios.get(
         "https://crm-system-staging-626e.up.railway.app/api/dashboard/clients-per-month",
         { headers: { Authorization: `Bearer ${token}` } }
@@ -122,20 +110,23 @@ const Dashboard = () => {
       
       if (res.data && res.data.length > 0) {
         // Transform data for better visualization
-        const transformedData = res.data.map((item, index) => ({
-          name: item.name || getMonthName(index),
-          clients: item.clients || Math.floor(Math.random() * 30) + 10,
-          previousYear: Math.floor((item.clients || 20) * 0.7),
+        const transformedData = res.data.map((item) => ({
+          name: item.name,
+          clients: item.clients || 0,
+          previousYear: Math.floor((item.clients || 0) * 0.7),
           target: 25
         }));
         setChartData(transformedData);
+        setApiError(false);
       } else {
-        // Set fallback data
+        // If API returns empty array, use fallback data
+        console.log("No chart data from API, using fallback");
         setChartData(generateFallbackChartData());
       }
     } catch (err) {
       console.error("Error fetching chart data:", err);
-      // Set fallback data
+      setApiError(true);
+      // Set fallback data on error
       setChartData(generateFallbackChartData());
     } finally {
       setChartLoading(false);
@@ -150,11 +141,6 @@ const Dashboard = () => {
       previousYear: Math.floor(Math.random() * 25) + 10 + index,
       target: 25
     }));
-  };
-
-  const getMonthName = (index) => {
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    return months[index % 12];
   };
 
   const fetchRecentActivity = async () => {
@@ -203,16 +189,10 @@ const Dashboard = () => {
     }
   };
 
-  // Ensure stats have default values
-  const displayStats = {
-    clients: stats.clients || 156,
-    admins: stats.admins || 8,
-    activeClients: stats.activeClients || 132,
-    pendingClients: stats.pendingClients || 24,
-    monthlyGrowth: stats.monthlyGrowth || 12.5,
-    securityScore: stats.securityScore || 98,
-    threatsBlocked: stats.threatsBlocked || 1247
-  };
+  const activeClients = Math.round((stats.clients || 0) * 0.85);
+  const monthlyGrowth = 12.5; // This could also come from API later
+  const securityScore = 98;
+  const threatsBlocked = 1247;
 
   return (
     <div className="dashboard-container">
@@ -244,15 +224,15 @@ const Dashboard = () => {
             <span className="card-badge">Total Clients</span>
           </div>
           <div className="card-value">
-            <p>{loading ? '...' : formatNumber(displayStats.clients)}</p>
+            <p>{loading ? '...' : formatNumber(stats.clients)}</p>
             <div className="growth positive">
               <ArrowUpRight size={14} />
-              <span>+{displayStats.monthlyGrowth}%</span>
+              <span>+{monthlyGrowth}%</span>
             </div>
           </div>
           <div className="card-footer">
             <span className="card-label">Active this month</span>
-            <span className="card-stats">+{Math.round(displayStats.clients * 0.15)}</span>
+            <span className="card-stats">+{Math.round((stats.clients || 0) * 0.15)}</span>
           </div>
           <div className="card-link">
             <span>View all clients</span>
@@ -270,7 +250,7 @@ const Dashboard = () => {
               <span className="card-badge">System Admins</span>
             </div>
             <div className="card-value">
-              <p>{loading ? '...' : formatNumber(displayStats.admins)}</p>
+              <p>{loading ? '...' : formatNumber(stats.admins)}</p>
               <div className="growth positive">
                 <ArrowUpRight size={14} />
                 <span>+2</span>
@@ -278,7 +258,7 @@ const Dashboard = () => {
             </div>
             <div className="card-footer">
               <span className="card-label">Active now</span>
-              <span className="card-stats">{Math.round(displayStats.admins * 0.8)}</span>
+              <span className="card-stats">{Math.round((stats.admins || 0) * 0.8)}</span>
             </div>
             <div className="card-link">
               <span>Manage admins</span>
@@ -321,18 +301,18 @@ const Dashboard = () => {
             <span className="card-badge">Security Status</span>
           </div>
           <div className="card-value">
-            <p>{displayStats.securityScore}%</p>
+            <p>{securityScore}%</p>
             <div className="growth positive">
               <CheckCircle size={14} />
               <span>Secure</span>
             </div>
           </div>
           <div className="progress-bar">
-            <div className="progress" style={{ width: `${displayStats.securityScore}%` }}></div>
+            <div className="progress" style={{ width: `${securityScore}%` }}></div>
           </div>
           <div className="card-footer">
             <span className="card-label">Threats blocked</span>
-            <span className="card-stats">{formatNumber(displayStats.threatsBlocked)}</span>
+            <span className="card-stats">{formatNumber(threatsBlocked)}</span>
           </div>
         </div>
       </div>

@@ -26,7 +26,9 @@ import {
   MapPin,
   Phone,
   Award,
-  Star
+  Star,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import "./AdminProfile.css";
 
@@ -43,8 +45,22 @@ const AdminProfile = () => {
     employeeId: "EMP-2024-001",
     securityLevel: "Level 3",
     lastLogin: "",
-    permissions: ["view_clients", "edit_clients", "upload_csv", "generate_reports"]
   });
+
+  // Password change state
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
+  });
+
+  const [showPassword, setShowPassword] = useState({
+    current: false,
+    new: false,
+    confirm: false
+  });
+
+  const [passwordErrors, setPasswordErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState("");
@@ -63,8 +79,12 @@ const AdminProfile = () => {
       const storedEmail = localStorage.getItem("email") || "admin@reactionunit.co.za";
       const storedRole = localStorage.getItem("role") || "super_admin";
       
+      // In a real app, you'd fetch from API
+      // const res = await axios.get("https://crm-system-staging-626e.up.railway.app/api/auth/me", {
+      //   headers: { Authorization: `Bearer ${token}` }
+      // });
+      
       setUserData({
-        ...userData,
         name: storedName,
         email: storedEmail,
         role: storedRole,
@@ -72,6 +92,8 @@ const AdminProfile = () => {
         joinDate: "January 2024",
         phone: "+27 82 123 4567",
         location: "Johannesburg, South Africa",
+        employeeId: "EMP-2024-001",
+        securityLevel: "Level 3",
         lastLogin: new Date().toLocaleString()
       });
     } catch (err) {
@@ -88,6 +110,7 @@ const AdminProfile = () => {
       setError("");
       setSuccess("");
       
+      // API call would go here
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       localStorage.setItem("name", userData.name);
@@ -101,12 +124,65 @@ const AdminProfile = () => {
     }
   };
 
+  const handlePasswordChange = async () => {
+    // Validate passwords
+    const errors = {};
+    
+    if (!passwordData.currentPassword) {
+      errors.currentPassword = "Current password is required";
+    }
+    
+    if (!passwordData.newPassword) {
+      errors.newPassword = "New password is required";
+    } else if (passwordData.newPassword.length < 8) {
+      errors.newPassword = "Password must be at least 8 characters";
+    } else if (!/[A-Z]/.test(passwordData.newPassword)) {
+      errors.newPassword = "Password must contain at least one uppercase letter";
+    } else if (!/[0-9]/.test(passwordData.newPassword)) {
+      errors.newPassword = "Password must contain at least one number";
+    } else if (!/[!@#$%^&*]/.test(passwordData.newPassword)) {
+      errors.newPassword = "Password must contain at least one special character";
+    }
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      errors.confirmPassword = "Passwords do not match";
+    }
+    
+    if (Object.keys(errors).length > 0) {
+      setPasswordErrors(errors);
+      return;
+    }
+    
+    try {
+      setSaving(true);
+      setError("");
+      setPasswordErrors({});
+      
+      // API call would go here
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setSuccess("Password updated successfully");
+      setPasswordData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: ""
+      });
+      
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      if (err.response?.status === 401) {
+        setPasswordErrors({ currentPassword: "Current password is incorrect" });
+      } else {
+        setError("Failed to update password");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const tabs = [
     { id: "profile", label: "Profile Information", icon: User },
-    { id: "security", label: "Security", icon: Shield },
-    { id: "notifications", label: "Notifications", icon: Bell },
-    { id: "preferences", label: "Preferences", icon: Globe },
-    { id: "activity", label: "Activity Log", icon: Clock }
+    { id: "security", label: "Security", icon: Shield }
   ];
 
   if (loading) {
@@ -177,7 +253,6 @@ const AdminProfile = () => {
             </p>
           </div>
         </div>
-        {/* Sign Out button removed - now only in sidebar */}
       </div>
 
       {/* Success/Error Messages */}
@@ -272,7 +347,7 @@ const AdminProfile = () => {
             </div>
           </div>
 
-          {/* Navigation Tabs */}
+          {/* Navigation Tabs - Now only 2 tabs */}
           <nav className="profile-nav">
             {tabs.map(tab => (
               <button
@@ -393,32 +468,77 @@ const AdminProfile = () => {
             <div className="tab-content">
               <div className="tab-header">
                 <h2>Security Settings</h2>
-                <p className="tab-description">Manage your password and security preferences</p>
+                <p className="tab-description">Update your password and security preferences</p>
               </div>
 
-              <form className="profile-form">
+              <form className="profile-form" onSubmit={(e) => e.preventDefault()}>
                 <div className="form-group">
                   <label>Current Password</label>
                   <div className="input-wrapper">
                     <Lock size={18} className="input-icon" />
-                    <input type="password" placeholder="Enter current password" />
+                    <input
+                      type={showPassword.current ? "text" : "password"}
+                      value={passwordData.currentPassword}
+                      onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
+                      placeholder="Enter current password"
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle"
+                      onClick={() => setShowPassword({...showPassword, current: !showPassword.current})}
+                    >
+                      {showPassword.current ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
                   </div>
+                  {passwordErrors.currentPassword && (
+                    <span className="error-message">{passwordErrors.currentPassword}</span>
+                  )}
                 </div>
 
                 <div className="form-group">
                   <label>New Password</label>
                   <div className="input-wrapper">
                     <Key size={18} className="input-icon" />
-                    <input type="password" placeholder="Enter new password" />
+                    <input
+                      type={showPassword.new ? "text" : "password"}
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                      placeholder="Enter new password"
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle"
+                      onClick={() => setShowPassword({...showPassword, new: !showPassword.new})}
+                    >
+                      {showPassword.new ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
                   </div>
+                  {passwordErrors.newPassword && (
+                    <span className="error-message">{passwordErrors.newPassword}</span>
+                  )}
                 </div>
 
                 <div className="form-group">
                   <label>Confirm New Password</label>
                   <div className="input-wrapper">
                     <Key size={18} className="input-icon" />
-                    <input type="password" placeholder="Confirm new password" />
+                    <input
+                      type={showPassword.confirm ? "text" : "password"}
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                      placeholder="Confirm new password"
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle"
+                      onClick={() => setShowPassword({...showPassword, confirm: !showPassword.confirm})}
+                    >
+                      {showPassword.confirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
                   </div>
+                  {passwordErrors.confirmPassword && (
+                    <span className="error-message">{passwordErrors.confirmPassword}</span>
+                  )}
                 </div>
 
                 <div className="security-notes">
@@ -438,213 +558,32 @@ const AdminProfile = () => {
                     </li>
                     <li>
                       <CheckCircle size={12} />
-                      Contains at least one special character
+                      Contains at least one special character (!@#$%^&*)
                     </li>
                   </ul>
                 </div>
 
-                <div className="permissions-section">
-                  <h4>Your Permissions</h4>
-                  <div className="permissions-grid">
-                    {userData.permissions.map((perm, index) => (
-                      <div key={index} className="permission-tag">
-                        <CheckCircle size={12} />
-                        <span>{perm.replace('_', ' ')}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
                 <div className="form-actions">
-                  <button type="button" className="btn-save">
-                    <Key size={18} />
-                    Update Password
+                  <button
+                    type="button"
+                    className="btn-save"
+                    onClick={handlePasswordChange}
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <>
+                        <span className="spinner-small"></span>
+                        Updating...
+                      </>
+                    ) : (
+                      <>
+                        <Key size={18} />
+                        Update Password
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
-            </div>
-          )}
-
-          {activeTab === "notifications" && (
-            <div className="tab-content">
-              <div className="tab-header">
-                <h2>Notification Preferences</h2>
-                <p className="tab-description">Choose how you want to be notified</p>
-              </div>
-
-              <div className="notifications-list">
-                <div className="notification-item">
-                  <div className="notification-info">
-                    <Bell size={18} />
-                    <div>
-                      <h4>Email Notifications</h4>
-                      <p>Receive updates via email</p>
-                    </div>
-                  </div>
-                  <label className="switch">
-                    <input type="checkbox" defaultChecked />
-                    <span className="slider"></span>
-                  </label>
-                </div>
-
-                <div className="notification-item">
-                  <div className="notification-info">
-                    <User size={18} />
-                    <div>
-                      <h4>New Client Alerts</h4>
-                      <p>Get notified when new clients are added</p>
-                    </div>
-                  </div>
-                  <label className="switch">
-                    <input type="checkbox" defaultChecked />
-                    <span className="slider"></span>
-                  </label>
-                </div>
-
-                <div className="notification-item">
-                  <div className="notification-info">
-                    <Radio size={18} />
-                    <div>
-                      <h4>System Updates</h4>
-                      <p>Receive information about system maintenance</p>
-                    </div>
-                  </div>
-                  <label className="switch">
-                    <input type="checkbox" defaultChecked />
-                    <span className="slider"></span>
-                  </label>
-                </div>
-
-                <div className="notification-item">
-                  <div className="notification-info">
-                    <Shield size={18} />
-                    <div>
-                      <h4>Security Alerts</h4>
-                      <p>Critical security notifications</p>
-                    </div>
-                  </div>
-                  <label className="switch">
-                    <input type="checkbox" defaultChecked />
-                    <span className="slider"></span>
-                  </label>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "preferences" && (
-            <div className="tab-content">
-              <div className="tab-header">
-                <h2>Preferences</h2>
-                <p className="tab-description">Customize your experience</p>
-              </div>
-
-              <div className="preferences-list">
-                <div className="preference-item">
-                  <div className="preference-info">
-                    <Moon size={18} />
-                    <div>
-                      <h4>Dark Mode</h4>
-                      <p>Switch between light and dark theme</p>
-                    </div>
-                  </div>
-                  <label className="switch">
-                    <input type="checkbox" />
-                    <span className="slider"></span>
-                  </label>
-                </div>
-
-                <div className="preference-item">
-                  <div className="preference-info">
-                    <Globe size={18} />
-                    <div>
-                      <h4>Language</h4>
-                      <p>Select your preferred language</p>
-                    </div>
-                  </div>
-                  <select className="language-select">
-                    <option>English</option>
-                    <option>Afrikaans</option>
-                    <option>Zulu</option>
-                    <option>Xhosa</option>
-                  </select>
-                </div>
-
-                <div className="preference-item">
-                  <div className="preference-info">
-                    <Bell size={18} />
-                    <div>
-                      <h4>Sound Effects</h4>
-                      <p>Play sounds for notifications</p>
-                    </div>
-                  </div>
-                  <label className="switch">
-                    <input type="checkbox" defaultChecked />
-                    <span className="slider"></span>
-                  </label>
-                </div>
-
-                <div className="preference-item">
-                  <div className="preference-info">
-                    <Clock size={18} />
-                    <div>
-                      <h4>Time Format</h4>
-                      <p>24-hour or 12-hour format</p>
-                    </div>
-                  </div>
-                  <select className="language-select">
-                    <option>24-hour</option>
-                    <option>12-hour</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "activity" && (
-            <div className="tab-content">
-              <div className="tab-header">
-                <h2>Activity Log</h2>
-                <p className="tab-description">Recent account activity</p>
-              </div>
-
-              <div className="activity-timeline">
-                <div className="timeline-item">
-                  <div className="timeline-dot"></div>
-                  <div className="timeline-content">
-                    <p>Profile viewed</p>
-                    <span>Just now</span>
-                  </div>
-                </div>
-                <div className="timeline-item">
-                  <div className="timeline-dot"></div>
-                  <div className="timeline-content">
-                    <p>Profile updated</p>
-                    <span>2 minutes ago</span>
-                  </div>
-                </div>
-                <div className="timeline-item">
-                  <div className="timeline-dot"></div>
-                  <div className="timeline-content">
-                    <p>Password changed</p>
-                    <span>1 day ago</span>
-                  </div>
-                </div>
-                <div className="timeline-item">
-                  <div className="timeline-dot"></div>
-                  <div className="timeline-content">
-                    <p>New login from Johannesburg</p>
-                    <span>2 days ago</span>
-                  </div>
-                </div>
-                <div className="timeline-item">
-                  <div className="timeline-dot"></div>
-                  <div className="timeline-content">
-                    <p>Security settings updated</p>
-                    <span>1 week ago</span>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
         </div>
