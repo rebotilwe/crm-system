@@ -39,7 +39,9 @@ import {
   PieChart,
   Target,
   Radio,
-  Fingerprint
+  Fingerprint,
+  LogIn,
+  Trash2
 } from "lucide-react";
 import "./Dashboard.css";
 
@@ -52,6 +54,7 @@ const Dashboard = () => {
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const [chartLoading, setChartLoading] = useState(true);
+  const [activityLoading, setActivityLoading] = useState(true);
   const [role, setRole] = useState("");
   const [userName, setUserName] = useState("");
   const [selectedPeriod, setSelectedPeriod] = useState("monthly");
@@ -144,14 +147,44 @@ const Dashboard = () => {
   };
 
   const fetchRecentActivity = async () => {
-    // Simulated recent activity data
-    setRecentActivity([
+    try {
+      setActivityLoading(true);
+      const token = localStorage.getItem("token");
+      
+      // Try to fetch real activity data
+      try {
+        const res = await axios.get(
+          "https://crm-system-staging-626e.up.railway.app/api/activity/recent",
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        
+        if (res.data && res.data.length > 0) {
+          setRecentActivity(res.data);
+          setApiError(false);
+        } else {
+          // Use fallback if no data
+          setRecentActivity(getFallbackActivity());
+        }
+      } catch (err) {
+        console.log("Using fallback activity data");
+        setRecentActivity(getFallbackActivity());
+      }
+    } catch (err) {
+      console.error("Error in activity fetch:", err);
+      setRecentActivity(getFallbackActivity());
+    } finally {
+      setActivityLoading(false);
+    }
+  };
+
+  const getFallbackActivity = () => {
+    return [
       { id: 1, action: "New client added", client: "John Doe", time: "5 minutes ago", type: "add" },
       { id: 2, action: "Client updated", client: "Jane Smith", time: "2 hours ago", type: "update" },
       { id: 3, action: "Report generated", client: "Monthly Report", time: "5 hours ago", type: "report" },
       { id: 4, action: "Bulk upload", client: "25 clients", time: "1 day ago", type: "upload" },
       { id: 5, action: "Security alert", client: "New login detected", time: "2 days ago", type: "alert" }
-    ]);
+    ];
   };
 
   const calculateGrowth = () => {
@@ -180,12 +213,29 @@ const Dashboard = () => {
 
   const getActivityIcon = (type) => {
     switch(type) {
-      case "add": return <UserPlus size={14} className="activity-icon add" />;
-      case "update": return <Users size={14} className="activity-icon update" />;
-      case "report": return <FileText size={14} className="activity-icon report" />;
-      case "upload": return <Upload size={14} className="activity-icon upload" />;
-      case "alert": return <AlertCircle size={14} className="activity-icon alert" />;
-      default: return <Activity size={14} className="activity-icon" />;
+      case "add":
+      case "new client added":
+        return <UserPlus size={14} className="activity-icon add" />;
+      case "update":
+      case "client updated":
+        return <Users size={14} className="activity-icon update" />;
+      case "delete":
+      case "client deleted":
+        return <Trash2 size={14} className="activity-icon delete" />;
+      case "report":
+      case "report generated":
+        return <FileText size={14} className="activity-icon report" />;
+      case "upload":
+      case "bulk upload":
+        return <Upload size={14} className="activity-icon upload" />;
+      case "login":
+      case "user logged in":
+        return <LogIn size={14} className="activity-icon login" />;
+      case "alert":
+      case "security alert":
+        return <AlertCircle size={14} className="activity-icon alert" />;
+      default:
+        return <Activity size={14} className="activity-icon" />;
     }
   };
 
@@ -487,24 +537,36 @@ const Dashboard = () => {
               <Clock size={18} />
               <h2>Recent Activity</h2>
             </div>
-            <button className="view-all-btn">View All</button>
+            <button className="view-all-btn" onClick={() => navigate("/activity")}>View All</button>
           </div>
 
           <div className="activity-list">
-            {recentActivity.map((activity) => (
-              <div key={activity.id} className="activity-item">
-                <div className="activity-icon-wrapper">
-                  {getActivityIcon(activity.type)}
-                </div>
-                <div className="activity-details">
-                  <div className="activity-info">
-                    <span className="activity-action">{activity.action}</span>
-                    <span className="activity-client">{activity.client}</span>
-                  </div>
-                  <span className="activity-time">{activity.time}</span>
-                </div>
+            {activityLoading ? (
+              <div className="activity-loading">
+                <div className="spinner-small"></div>
+                <span>Loading activities...</span>
               </div>
-            ))}
+            ) : recentActivity.length > 0 ? (
+              recentActivity.map((activity) => (
+                <div key={activity.id} className="activity-item">
+                  <div className="activity-icon-wrapper">
+                    {getActivityIcon(activity.type)}
+                  </div>
+                  <div className="activity-details">
+                    <div className="activity-info">
+                      <span className="activity-action">{activity.action}</span>
+                      <span className="activity-client">{activity.client}</span>
+                    </div>
+                    <span className="activity-time">{activity.time}</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="no-activity">
+                <Activity size={24} />
+                <p>No recent activity</p>
+              </div>
+            )}
           </div>
 
           <div className="activity-footer">
