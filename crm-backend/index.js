@@ -188,6 +188,61 @@ app.get("/api/clients", verifyToken, async (req, res) => {
   }
 });
 
+// Update client
+app.put("/api/clients/:id", verifyToken, async (req, res) => {
+  const {
+    business_name,
+    owner_name,
+    owner_phone,
+    landline,
+    owner_email,
+    physical_address,
+    postal_address,
+    security_complement,
+    additional_requirements,
+  } = req.body;
+
+  try {
+    const sql = `
+      UPDATE clients SET
+        business_name = ?,
+        owner_name = ?,
+        owner_phone = ?,
+        landline = ?,
+        owner_email = ?,
+        physical_address = ?,
+        postal_address = ?,
+        security_complement = ?,
+        additional_requirements = ?
+      WHERE id = ?
+    `;
+
+    const [result] = await db.query(sql, [
+      business_name,
+      owner_name,
+      owner_phone,
+      landline,
+      owner_email,
+      physical_address,
+      postal_address,
+      security_complement,
+      additional_requirements,
+      req.params.id,
+    ]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Client not found" });
+    }
+
+    res.json({ message: "Client updated successfully" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // Get single client
 app.get("/api/clients/:id", verifyToken, async (req, res) => {
   try {
