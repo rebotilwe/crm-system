@@ -500,13 +500,21 @@ const Dashboard = () => {
               </div>
             </button>
 
-            <button onClick={() => navigate("/add-client")} className="quick-action-btn">
-              <div className="icon-wrapper green-bg"><UserPlus size={18} /></div>
-              <div className="quick-action-content">
-                <span className="action-title">Add Client</span>
-                <span className="action-desc">Create new client record</span>
-              </div>
-            </button>
+          <button 
+  onClick={() => {
+    console.log("Add Client button clicked");
+    console.log("Navigating to:", "/add-client");
+    console.log("Current token exists:", !!localStorage.getItem("token"));
+    navigate("/add-client");
+  }} 
+  className="quick-action-btn"
+>
+  <div className="icon-wrapper green-bg"><UserPlus size={18} /></div>
+  <div className="quick-action-content">
+    <span className="action-title">Add Client</span>
+    <span className="action-desc">Create new client record</span>
+  </div>
+</button>
 
             {(role === "super_admin" || role === "admin") && (
               <button onClick={() => navigate("/upload-clients")} className="quick-action-btn">

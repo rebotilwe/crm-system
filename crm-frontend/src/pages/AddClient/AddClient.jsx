@@ -1,5 +1,5 @@
 // src/pages/AddClient/AddClient.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -43,6 +43,12 @@ const AddClient = () => {
   const [currentSection, setCurrentSection] = useState(0);
   const navigate = useNavigate();
 
+  // Debug mount
+  useEffect(() => {
+    console.log("📝 AddClient - Component mounted");
+    console.log("📝 AddClient - Token exists:", !!localStorage.getItem("token"));
+  }, []);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
@@ -77,9 +83,13 @@ const AddClient = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    console.log("📝 AddClient - Starting submission");
+    console.log("📝 AddClient - Form data:", formData);
+    
     // Validate form
     const newErrors = validateForm();
     if (Object.keys(newErrors).length > 0) {
+      console.log("📝 AddClient - Validation errors:", newErrors);
       setErrors(newErrors);
       // Scroll to first error
       const firstErrorField = document.querySelector('[data-error="true"]');
@@ -94,22 +104,30 @@ const AddClient = () => {
 
     try {
       const token = localStorage.getItem("token");
+      console.log("📝 AddClient - Token exists:", !!token);
 
       if (!token) {
+        console.log("📝 AddClient - No token found!");
         alert("Session expired. Please login again.");
         navigate("/login");
         return;
       }
 
+      console.log("📝 AddClient - Making API request to: https://crm-system-staging-626e.up.railway.app/api/clients");
+      
       const res = await axios.post(
         "https://crm-system-staging-626e.up.railway.app/api/clients",
         formData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
           },
         }
       );
+
+      console.log("📝 AddClient - Response received:", res.data);
+      console.log("📝 AddClient - Response status:", res.status);
 
       setSuccessMessage(`Client "${formData.business_name}" added successfully!`);
       
@@ -119,21 +137,50 @@ const AddClient = () => {
       }, 2000);
 
     } catch (err) {
-      console.error("Add Client Error:", err.response || err);
+      console.error("📝 AddClient - Error caught:", err);
+      console.error("📝 AddClient - Error response:", err.response);
+      console.error("📝 AddClient - Error status:", err.response?.status);
+      console.error("📝 AddClient - Error data:", err.response?.data);
+      console.error("📝 AddClient - Error message:", err.message);
 
-      if (err.response?.status === 401) {
-        alert("Session expired. Please login again.");
+      if (err.code === 'ERR_NETWORK') {
+        console.log("📝 AddClient - Network error detected");
+        setErrors({ general: "Network error. Please check your internet connection and try again." });
+      } else if (err.response?.status === 401) {
+        console.log("📝 AddClient - 401 Unauthorized - Token may be expired");
+        alert("Your session has expired. Please login again.");
         localStorage.clear();
         navigate("/login");
       } else if (err.response?.status === 400) {
+        console.log("📝 AddClient - 400 Bad Request");
         setErrors(err.response.data.errors || { general: "Please check your input and try again." });
+      } else if (err.response?.status === 500) {
+        console.log("📝 AddClient - 500 Server Error");
+        setErrors({ general: "Server error. Please try again later." });
       } else {
+        console.log("📝 AddClient - Unknown error");
         setErrors({ general: "Error adding client. Please try again." });
       }
     } finally {
       setLoading(false);
+      console.log("📝 AddClient - Submission completed");
     }
   };
+
+  // Also add this to test the token manually
+  const testToken = () => {
+    const token = localStorage.getItem("token");
+    console.log("📝 AddClient - Manual token check:", token ? "✅ Present" : "❌ Missing");
+    if (token) {
+      console.log("📝 AddClient - Token length:", token.length);
+      console.log("📝 AddClient - Token preview:", token.substring(0, 20) + "...");
+    }
+  };
+
+  // Call testToken when component mounts
+  useEffect(() => {
+    testToken();
+  }, []);
 
   const formSections = [
     {
