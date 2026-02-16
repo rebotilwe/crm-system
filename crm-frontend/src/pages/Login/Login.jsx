@@ -11,7 +11,11 @@ import {
   AlertCircle,
   Briefcase,
   CheckCircle,
-  Copy
+  Copy,
+  Fingerprint,
+  Radio,
+  Users,
+  Target
 } from "lucide-react";
 import "./Login.css";
 
@@ -29,11 +33,10 @@ const Login = () => {
     setLoading(true);
 
     try {
-  const res = await axios.post(
-  "https://crm-system-staging-626e.up.railway.app/api/auth/login",
-  { email, password }
-);
-
+      const res = await axios.post(
+        "https://crm-system-staging-626e.up.railway.app/api/auth/login",
+        { email, password }
+      );
 
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("admin", JSON.stringify(res.data.user));
@@ -54,56 +57,56 @@ const Login = () => {
   };
 
   return (
-    <div style={{ 
-      minHeight: '100vh',
-      width: '100%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      position: 'relative'
-    }}>
-      {/* Background Decorations */}
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        overflow: 'hidden'
-      }}>
-        <div style={{
-          position: 'absolute',
-          top: '-10rem',
-          right: '-10rem',
-          width: '30rem',
-          height: '30rem',
-          background: 'rgba(255, 255, 255, 0.1)',
-          borderRadius: '50%',
-          filter: 'blur(60px)'
-        }}></div>
-        <div style={{
-          position: 'absolute',
-          bottom: '-10rem',
-          left: '-10rem',
-          width: '30rem',
-          height: '30rem',
-          background: 'rgba(255, 255, 255, 0.1)',
-          borderRadius: '50%',
-          filter: 'blur(60px)'
-        }}></div>
+    <div className="login-container">
+      {/* Security Grid Background */}
+      <div className="security-grid">
+        <div className="grid-overlay"></div>
+      </div>
+
+      {/* Animated Security Elements */}
+      <div className="security-elements">
+        <div className="element-1">
+          <Radio />
+        </div>
+        <div className="element-2">
+          <Fingerprint />
+        </div>
+        <div className="element-3">
+          <Target />
+        </div>
+        <div className="element-4">
+          <Users />
+        </div>
       </div>
 
       {/* Login Card */}
       <div className="login-card">
-        <div className="card-gradient"></div>
+        <div className="card-shine"></div>
+        <div className="card-pattern"></div>
         
         <div className="card-content">
-          {/* Logo Section */}
-          <div className="logo-section">
-            <div className="logo-wrapper">
-              <Briefcase />
+          {/* Company Header */}
+          <div className="company-header">
+            <div className="badge-container">
+              <div className="security-badge">
+                <Shield className="badge-icon" />
+                <span>SECURE ACCESS</span>
+              </div>
+              <div className="badge-line"></div>
             </div>
-            <h1 className="logo-title">CRM Pro</h1>
-            <p className="logo-subtitle">
-              Sign in to access your dashboard
+            
+            <div className="logo-wrapper">
+              <div className="logo-icon">
+                <Radio />
+              </div>
+              <div className="logo-text">
+                <h1>REACTION UNIT</h1>
+                <span>SOUTH AFRICA</span>
+              </div>
+            </div>
+
+            <p className="welcome-text">
+              Restricted Access • Authorized Personnel Only
             </p>
           </div>
 
@@ -111,7 +114,10 @@ const Login = () => {
           {error && (
             <div className="error-alert">
               <AlertCircle className="error-icon" />
-              <p className="error-message">{error}</p>
+              <div className="error-content">
+                <p className="error-title">Authentication Failed</p>
+                <p className="error-message">{error}</p>
+              </div>
             </div>
           )}
 
@@ -119,46 +125,45 @@ const Login = () => {
           <form onSubmit={handleSubmit} className="login-form">
             {/* Email Field */}
             <div className="form-group">
-              <div className="form-label">
-                <span>Email Address</span>
-              </div>
+              <label className="form-label">
+                <Mail size={14} />
+                <span>Operator ID / Email</span>
+              </label>
               <div className="input-wrapper">
-                <span className="input-icon">
-                  <Mail />
-                </span>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@crm.com"
+                  placeholder="admin@reactionunit.co.za"
                   className="form-input"
                 />
+                <div className={`input-status ${email ? 'filled' : ''}`}></div>
               </div>
             </div>
 
             {/* Password Field */}
             <div className="form-group">
-              <div className="form-label">
-                <span>Password</span>
+              <div className="label-row">
+                <label className="form-label">
+                  <Lock size={14} />
+                  <span>Access Code</span>
+                </label>
                 <button
                   type="button"
                   className="forgot-link"
-                  onClick={() => alert("Please contact your system administrator")}
+                  onClick={() => alert("Contact Security Administrator")}
                 >
-                  Forgot password?
+                  Reset Code
                 </button>
               </div>
               <div className="input-wrapper">
-                <span className="input-icon">
-                  <Lock />
-                </span>
                 <input
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  placeholder="Enter your access code"
                   className="form-input"
                 />
                 <button
@@ -166,19 +171,23 @@ const Login = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   className="password-toggle"
                 >
-                  {showPassword ? <EyeOff /> : <Eye />}
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
+                <div className={`input-status ${password ? 'filled' : ''}`}></div>
               </div>
             </div>
 
-            {/* Remember Me */}
-            <div className="remember-me">
-              <div className="checkbox-wrapper">
-                <input
-                  type="checkbox"
-                  id="remember"
-                />
-                <label htmlFor="remember">Remember me</label>
+            {/* Security Options */}
+            <div className="security-options">
+              <label className="checkbox-wrapper">
+                <input type="checkbox" id="remember" />
+                <span className="checkbox-custom"></span>
+                <span className="checkbox-label">Remember this device</span>
+              </label>
+              
+              <div className="security-indicator">
+                <span className="dot"></span>
+                <span>Secure Connection</span>
               </div>
             </div>
 
@@ -191,60 +200,54 @@ const Login = () => {
               {loading ? (
                 <>
                   <span className="spinner"></span>
-                  Signing in...
+                  <span>Verifying Credentials...</span>
                 </>
               ) : (
                 <>
-                  <LogIn />
-                  Sign In
+                  <LogIn size={18} />
+                  <span>Access Control Panel</span>
                 </>
               )}
             </button>
 
-            {/* Demo Credentials */}
-            {/* <div className="divider">
-              <div className="divider-line">
-                <hr />
+            {/* Demo Credentials - Commented out for production */}
+            {/* <div className="demo-section">
+              <div className="demo-header">
+                <Shield size={14} />
+                <span>Training Mode Credentials</span>
               </div>
-              <div className="divider-text">
-                <span>Demo Credentials</span>
-              </div>
-            </div>
-
-            <div className="demo-credentials">
-              <div className="demo-content">
-                <Shield className="demo-icon" />
-                <div className="demo-details">
-                  <div className="demo-credential-item">
-                    <span className="credential-label">Email:</span>
-                    <span className="credential-value">admin@crm.com</span>
-                  </div>
-                  <div className="demo-credential-item">
-                    <span className="credential-label">Password:</span>
-                    <span className="credential-value">Bobo.98@</span>
-                  </div>
-                  <span className="demo-badge">
-                    <CheckCircle size={14} style={{ display: 'inline', marginRight: '4px' }} />
-                    Use these credentials to login
-                  </span>
-                  
-                  <button
-                    type="button"
-                    onClick={autoFillCredentials}
-                    className="auto-fill-btn"
-                  >
-                    <Copy size={14} />
-                    Auto-fill credentials
-                  </button>
+              <div className="demo-credentials">
+                <div className="credential-row">
+                  <span className="cred-label">ID:</span>
+                  <code>admin@crm.com</code>
                 </div>
+                <div className="credential-row">
+                  <span className="cred-label">Code:</span>
+                  <code>Bobo.98@</code>
+                </div>
+                <button
+                  type="button"
+                  onClick={autoFillCredentials}
+                  className="auto-fill-btn"
+                >
+                  <Copy size={12} />
+                  Auto-fill Training Credentials
+                </button>
               </div>
             </div> */}
           </form>
 
           {/* Footer */}
           <div className="login-footer">
-            <p className="copyright">
-              © {new Date().getFullYear()} CRM Pro. All rights reserved.
+            <div className="footer-links">
+              <span>© {new Date().getFullYear()} Reaction Unit South Africa</span>
+              <span className="separator">|</span>
+              <span>All rights reserved</span>
+              <span className="separator">|</span>
+              <span>v2.0.1</span>
+            </div>
+            <p className="security-notice">
+              Unauthorized access is prohibited and may result in prosecution
             </p>
           </div>
         </div>

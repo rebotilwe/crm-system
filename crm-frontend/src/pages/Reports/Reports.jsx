@@ -8,47 +8,94 @@ import {
   TrendingUp,
   Shield,
   Building2,
-  PieChart,
   BarChart3,
   FileSpreadsheet,
-  Filter,
-  ChevronDown,
   Printer,
   Mail
 } from "lucide-react";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 import "./Reports.css";
+
+const API_URL = "https://crm-system-staging-626e.up.railway.app";
 
 const Reports = () => {
   const [reportType, setReportType] = useState("clients");
   const [dateRange, setDateRange] = useState("month");
   const [loading, setLoading] = useState(false);
+  const [clients, setClients] = useState([]);
   const [stats, setStats] = useState({
     totalClients: 0,
     newClients: 0,
     activeClients: 0,
-    growth: 0
+    growth: 0,
+    topLocations: 0
   });
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  const token = localStorage.getItem("token");
 
-  const fetchStats = async () => {
+  useEffect(() => {
+    fetchClients();
+  }, [dateRange]);
+
+  const fetchClients = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
-       const res = await axios.get(
-  "https://crm-system-staging-626e.up.railway.app/api/dashboard/stats",
-  { headers: { Authorization: `Bearer ${token}` } }
-);
+      const res = await axios.get(`${API_URL}/api/clients`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-      // Calculate additional stats
-      const totalClients = res.data.clients || 0;
+      const allClients = res.data || [];
+      const now = new Date();
+
+      const filteredClients = allClients.filter(c => {
+        const created = new Date(c.created_at);
+        switch (dateRange) {
+          case "today":
+            return created.toDateString() === now.toDateString();
+          case "week":
+            const weekStart = new Date(now);
+            weekStart.setDate(now.getDate() - now.getDay());
+            return created >= weekStart;
+          case "month":
+            return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
+          case "quarter":
+            const currentQuarter = Math.floor(now.getMonth() / 3);
+            const clientQuarter = Math.floor(created.getMonth() / 3);
+            return clientQuarter === currentQuarter && created.getFullYear() === now.getFullYear();
+          case "year":
+            return created.getFullYear() === now.getFullYear();
+          default:
+            return true;
+        }
+      });
+
+      setClients(filteredClients);
+
+      const totalClients = filteredClients.length;
+
+      const newClients = filteredClients.filter(c => {
+        const created = new Date(c.created_at);
+        return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
+      }).length;
+
+      const activeClients = filteredClients.filter(c => c.security_complement).length;
+
+      const growthYTD = (() => {
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        const clientsStartYear = allClients.filter(c => new Date(c.created_at) < startOfYear).length;
+        return clientsStartYear === 0 ? totalClients : Math.round((totalClients / clientsStartYear - 1) * 100);
+      })();
+
+      const topLocations = new Set(filteredClients.map(c => c.physical_address)).size;
+
       setStats({
         totalClients,
-        newClients: Math.round(totalClients * 0.15), // 15% new clients
-        activeClients: Math.round(totalClients * 0.85), // 85% active
-        growth: 12.5
+        newClients,
+        activeClients,
+        growth: growthYTD,
+        topLocations
       });
     } catch (err) {
       console.error(err);
@@ -57,16 +104,74 @@ const Reports = () => {
     }
   };
 
+  const exportToExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(clients.map(c => ({
+      "Business Name": c.business_name,
+      "Owner Name": c.owner_name,
+      "Phone": c.owner_phone,
+      "Email": c.owner_email || "N/A",
+      "Security Complement": c.security_complement || "None",
+      "Physical Address": c.physical_address || "N/A",
+      "Postal Address": c.postal_address || "N/A",
+      "Created At": new Date(c.created_at).toLocaleDateString(),
+      "Status": c.security_complement ? "Active" : "Inactive"
+    })));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Clients");
+    XLSX.writeFile(workbook, "Client_Report.xlsx");
+  };
+
+  const exportToCSV = () => {
+    const worksheet = XLSX.utils.json_to_sheet(clients.map(c => ({
+      "Business Name": c.business_name,
+      "Owner Name": c.owner_name,
+      "Phone": c.owner_phone,
+      "Email": c.owner_email || "N/A",
+      "Security Complement": c.security_complement || "None",
+      "Physical Address": c.physical_address || "N/A",
+      "Postal Address": c.postal_address || "N/A",
+      "Created At": new Date(c.created_at).toLocaleDateString(),
+      "Status": c.security_complement ? "Active" : "Inactive"
+    })));
+    const csv = XLSX.utils.sheet_to_csv(worksheet);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "Client_Report.csv");
+    link.click();
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    const tableColumn = ["Business Name", "Owner", "Phone", "Email", "Security", "Physical Address", "Postal Address", "Created At", "Status"];
+    const tableRows = clients.map(c => [
+      c.business_name,
+      c.owner_name,
+      c.owner_phone,
+      c.owner_email || "N/A",
+      c.security_complement || "None",
+      c.physical_address || "N/A",
+      c.postal_address || "N/A",
+      new Date(c.created_at).toLocaleDateString(),
+      c.security_complement ? "Active" : "Inactive"
+    ]);
+    doc.autoTable(tableColumn, tableRows, { startY: 20 });
+    doc.text("Client Report", 14, 15);
+    doc.save("Client_Report.pdf");
+  };
+
   const handleExport = (format) => {
-    alert(`Exporting ${reportType} report as ${format.toUpperCase()}`);
-    // Implement actual export logic here
+    if (format === "pdf") exportToPDF();
+    if (format === "excel") exportToExcel();
+    if (format === "csv") exportToCSV();
   };
 
   const reportOptions = [
-    { id: "clients", label: "Client Report", icon: <Users />, description: "Overview of all clients in the system" },
-    { id: "activity", label: "Activity Report", icon: <TrendingUp />, description: "Client activity and engagement metrics" },
-    { id: "security", label: "Security Report", icon: <Shield />, description: "Security complement analysis" },
-    { id: "growth", label: "Growth Report", icon: <BarChart3 />, description: "Client acquisition and growth trends" }
+    { id: "clients", label: "Client Report" },
+    { id: "activity", label: "Activity Report" },
+    { id: "security", label: "Security Report" },
+    { id: "growth", label: "Growth Report" }
   ];
 
   const dateRanges = [
@@ -83,14 +188,10 @@ const Reports = () => {
       {/* Page Header */}
       <div className="page-header">
         <div className="header-left">
-          <div className="header-icon">
-            <FileText />
-          </div>
+          <div className="header-icon"><FileText /></div>
           <div>
             <h1 className="page-title">Reports & Analytics</h1>
-            <p className="page-subtitle">
-              Generate and export detailed reports about your clients
-            </p>
+            <p className="page-subtitle">Generate and export detailed reports about your clients</p>
           </div>
         </div>
       </div>
@@ -98,180 +199,45 @@ const Reports = () => {
       {/* Stats Overview */}
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="stat-icon blue">
-            <Users />
-          </div>
+          <div className="stat-icon blue"><Users /></div>
           <div className="stat-details">
             <h3>Total Clients</h3>
             <p className="stat-number">{stats.totalClients}</p>
-            <span className="stat-trend positive">+{stats.growth}% vs last month</span>
+            <span className="stat-trend positive">{stats.growth}% YTD Growth</span>
           </div>
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon green">
-            <TrendingUp />
-          </div>
+          <div className="stat-icon green"><TrendingUp /></div>
           <div className="stat-details">
             <h3>New Clients</h3>
             <p className="stat-number">{stats.newClients}</p>
-            <span className="stat-trend positive">+15% this month</span>
+            <span className="stat-trend positive">New this month</span>
           </div>
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon purple">
-            <Building2 />
-          </div>
+          <div className="stat-icon purple"><Building2 /></div>
           <div className="stat-details">
             <h3>Active Clients</h3>
             <p className="stat-number">{stats.activeClients}</p>
-            <span className="stat-trend">85% active rate</span>
+            <span className="stat-trend">Clients with security</span>
           </div>
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon amber">
-            <Calendar />
-          </div>
+          <div className="stat-icon amber"><Calendar /></div>
           <div className="stat-details">
-            <h3>Report Period</h3>
-            <p className="stat-number">{dateRanges.find(d => d.id === dateRange)?.label}</p>
-            <span className="stat-trend">{new Date().getFullYear()}</span>
+            <h3>Top Locations</h3>
+            <p className="stat-number">{stats.topLocations}</p>
+            <span className="stat-trend">Cities/Addresses</span>
           </div>
         </div>
       </div>
 
-      {/* Report Generator */}
-      <div className="report-generator">
-        <div className="generator-header">
-          <h2>Generate Report</h2>
-          <p>Select report type and date range to generate custom reports</p>
-        </div>
-
-        <div className="generator-content">
-          {/* Report Type Selection */}
-          <div className="selection-section">
-            <label className="section-label">
-              <FileText size={18} />
-              Report Type
-            </label>
-            <div className="report-options">
-              {reportOptions.map((option) => (
-                <div
-                  key={option.id}
-                  className={`report-option ${reportType === option.id ? "active" : ""}`}
-                  onClick={() => setReportType(option.id)}
-                >
-                  <div className="option-icon">{option.icon}</div>
-                  <div className="option-details">
-                    <h4>{option.label}</h4>
-                    <p>{option.description}</p>
-                  </div>
-                  {reportType === option.id && (
-                    <div className="active-indicator"></div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Date Range Selection */}
-          <div className="selection-section">
-            <label className="section-label">
-              <Calendar size={18} />
-              Date Range
-            </label>
-            <div className="date-range-options">
-              {dateRanges.map((range) => (
-                <button
-                  key={range.id}
-                  className={`date-range-btn ${dateRange === range.id ? "active" : ""}`}
-                  onClick={() => setDateRange(range.id)}
-                >
-                  {range.label}
-                </button>
-              ))}
-            </div>
-            
-            {dateRange === "custom" && (
-              <div className="custom-date-range">
-                <div className="date-input">
-                  <label>From</label>
-                  <input type="date" className="date-picker" />
-                </div>
-                <div className="date-input">
-                  <label>To</label>
-                  <input type="date" className="date-picker" />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Additional Filters */}
-          <div className="selection-section">
-            <label className="section-label">
-              <Filter size={18} />
-              Additional Filters
-            </label>
-            <div className="filters-grid">
-              <div className="filter-item">
-                <label className="filter-label">Client Status</label>
-                <select className="filter-select">
-                  <option>All Clients</option>
-                  <option>Active Only</option>
-                  <option>Inactive Only</option>
-                  <option>New Clients</option>
-                </select>
-              </div>
-              <div className="filter-item">
-                <label className="filter-label">Security Complement</label>
-                <select className="filter-select">
-                  <option>All</option>
-                  <option>With Security</option>
-                  <option>Without Security</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Export Actions */}
-        <div className="export-actions">
-          <div className="export-buttons">
-            <button className="btn-export pdf" onClick={() => handleExport('pdf')}>
-              <FileText size={18} />
-              Export as PDF
-            </button>
-            <button className="btn-export excel" onClick={() => handleExport('excel')}>
-              <FileSpreadsheet size={18} />
-              Export as Excel
-            </button>
-            <button className="btn-export csv" onClick={() => handleExport('csv')}>
-              <Download size={18} />
-              Export as CSV
-            </button>
-          </div>
-          <div className="action-buttons">
-            <button className="btn-print">
-              <Printer size={18} />
-              Print
-            </button>
-            <button className="btn-email">
-              <Mail size={18} />
-              Email Report
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Sample Report Preview */}
+      {/* Report Preview */}
       <div className="report-preview">
-        <div className="preview-header">
-          <h3>Report Preview</h3>
-          <span className="preview-badge">Sample Data</span>
-        </div>
-        
+        <div className="preview-header"><h3>Report Preview</h3></div>
         <div className="preview-content">
           <table className="preview-table">
             <thead>
@@ -279,44 +245,32 @@ const Reports = () => {
                 <th>Business Name</th>
                 <th>Owner</th>
                 <th>Phone</th>
+                <th>Email</th>
                 <th>Security</th>
+                <th>Physical Address</th>
+                <th>Postal Address</th>
                 <th>Added Date</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td>ABC Corporation</td>
-                <td>John Doe</td>
-                <td>0777 123 456</td>
-                <td>24/7 Surveillance</td>
-                <td>2026-02-01</td>
-                <td><span className="status-badge active">Active</span></td>
-              </tr>
-              <tr>
-                <td>XYZ Enterprises</td>
-                <td>Jane Smith</td>
-                <td>0777 789 012</td>
-                <td>Access Control</td>
-                <td>2026-01-15</td>
-                <td><span className="status-badge active">Active</span></td>
-              </tr>
-              <tr>
-                <td>Global Solutions</td>
-                <td>Mike Johnson</td>
-                <td>0112 345 678</td>
-                <td>None</td>
-                <td>2025-12-10</td>
-                <td><span className="status-badge inactive">Inactive</span></td>
-              </tr>
-              <tr>
-                <td>Tech Innovations</td>
-                <td>Sarah Williams</td>
-                <td>0777 456 789</td>
-                <td>CCTV Monitoring</td>
-                <td>2026-02-05</td>
-                <td><span className="status-badge active">Active</span></td>
-              </tr>
+              {clients.map(c => (
+                <tr key={c.id}>
+                  <td>{c.business_name}</td>
+                  <td>{c.owner_name}</td>
+                  <td>{c.owner_phone}</td>
+                  <td>{c.owner_email || "N/A"}</td>
+                  <td>{c.security_complement || "None"}</td>
+                  <td>{c.physical_address || "N/A"}</td>
+                  <td>{c.postal_address || "N/A"}</td>
+                  <td>{new Date(c.created_at).toLocaleDateString()}</td>
+                  <td>
+                    <span className={`status-badge ${c.security_complement ? "active" : "inactive"}`}>
+                      {c.security_complement ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -327,61 +281,51 @@ const Reports = () => {
         <h3>Quick Reports</h3>
         <div className="quick-reports-grid">
           <div className="quick-report-card">
-            <div className="quick-report-icon">
-              <Users />
-            </div>
+            <div className="quick-report-icon"><Users /></div>
             <div className="quick-report-details">
               <h4>New Clients This Month</h4>
-              <p className="quick-report-number">24</p>
-              <span className="quick-report-trend">↑ 8% from last month</span>
+              <p className="quick-report-number">{stats.newClients}</p>
             </div>
-            <button className="quick-report-btn" onClick={() => handleExport('pdf')}>
-              <Download size={16} />
-            </button>
+            <button className="quick-report-btn" onClick={() => handleExport('pdf')}><Download size={16} /></button>
           </div>
 
           <div className="quick-report-card">
-            <div className="quick-report-icon">
-              <Shield />
-            </div>
+            <div className="quick-report-icon"><Shield /></div>
             <div className="quick-report-details">
               <h4>Security Complement Summary</h4>
-              <p className="quick-report-number">67%</p>
+              <p className="quick-report-number">{stats.activeClients}</p>
               <span className="quick-report-trend">Clients with security</span>
             </div>
-            <button className="quick-report-btn" onClick={() => handleExport('pdf')}>
-              <Download size={16} />
-            </button>
+            <button className="quick-report-btn" onClick={() => handleExport('pdf')}><Download size={16} /></button>
           </div>
 
           <div className="quick-report-card">
-            <div className="quick-report-icon">
-              <TrendingUp />
-            </div>
+            <div className="quick-report-icon"><TrendingUp /></div>
             <div className="quick-report-details">
               <h4>Growth Rate (YTD)</h4>
-              <p className="quick-report-number">+12.5%</p>
-              <span className="quick-report-trend positive">↑ 2.3% vs target</span>
+              <p className="quick-report-number">{stats.growth}%</p>
+              <span className="quick-report-trend positive">vs start of year</span>
             </div>
-            <button className="quick-report-btn" onClick={() => handleExport('pdf')}>
-              <Download size={16} />
-            </button>
+            <button className="quick-report-btn" onClick={() => handleExport('pdf')}><Download size={16} /></button>
           </div>
 
           <div className="quick-report-card">
-            <div className="quick-report-icon">
-              <Building2 />
-            </div>
+            <div className="quick-report-icon"><Building2 /></div>
             <div className="quick-report-details">
               <h4>Top Locations</h4>
-              <p className="quick-report-number">8</p>
-              <span className="quick-report-trend">Cities with clients</span>
+              <p className="quick-report-number">{stats.topLocations}</p>
+              <span className="quick-report-trend">Cities / Addresses</span>
             </div>
-            <button className="quick-report-btn" onClick={() => handleExport('pdf')}>
-              <Download size={16} />
-            </button>
+            <button className="quick-report-btn" onClick={() => handleExport('pdf')}><Download size={16} /></button>
           </div>
         </div>
+      </div>
+
+      {/* Export Buttons */}
+      <div className="export-actions">
+        <button className="btn-export pdf" onClick={() => handleExport('pdf')}>Export PDF</button>
+        <button className="btn-export excel" onClick={() => handleExport('excel')}>Export Excel</button>
+        <button className="btn-export csv" onClick={() => handleExport('csv')}>Export CSV</button>
       </div>
     </div>
   );

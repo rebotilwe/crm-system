@@ -229,6 +229,7 @@ app.put("/api/clients/:id", verifyToken, async (req, res) => {
       additional_requirements,
       req.params.id,
     ]);
+     console.log("PUT affected rows:", result.affectedRows); // ✅ Add this
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Client not found" });

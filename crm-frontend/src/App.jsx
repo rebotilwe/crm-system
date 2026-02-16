@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard/Dashboard"; // Import Dashboard directl
 import Admins from "./pages/Admins/Admins";
 import Reports from "./pages/Reports/Reports";
 import UserProfile from "./pages/UserProfile/UserProfile"
+import AdminProfile from "./pages/AdminProfile/AdminProfile";
 
 function App() {
   return (
@@ -37,6 +38,15 @@ function App() {
           </ProtectedRoute>
         }
       />
+         <Route
+        path="/adminProfile"
+        element={
+          <ProtectedRoute>
+            <AdminProfile />
+          </ProtectedRoute>
+        }
+      />
+
 
       <Route
         path="/client/:id"

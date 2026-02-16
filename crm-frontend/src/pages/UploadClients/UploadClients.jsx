@@ -1,3 +1,4 @@
+// src/pages/UploadClients/UploadClients.jsx
 import { useState, useRef } from "react";
 import axios from "axios";
 import { 
@@ -9,7 +10,13 @@ import {
   Download,
   Info,
   File,
-  Trash2
+  Trash2,
+  Shield,
+  Database,
+  Users,
+  ChevronRight,
+  Clock,
+  Lock
 } from "lucide-react";
 import "./UploadClients.css";
 
@@ -17,6 +24,7 @@ const UploadClients = () => {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleFileChange = (e) => {
@@ -31,6 +39,7 @@ const UploadClients = () => {
 
   const handleDrop = (e) => {
     e.preventDefault();
+    setDragActive(false);
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile && (droppedFile.type === "text/csv" || droppedFile.name.endsWith('.csv'))) {
       setFile(droppedFile);
@@ -42,6 +51,12 @@ const UploadClients = () => {
 
   const handleDragOver = (e) => {
     e.preventDefault();
+    setDragActive(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDragActive(false);
   };
 
   const handleUpload = async () => {
@@ -52,18 +67,29 @@ const UploadClients = () => {
     formData.append("file", file);
 
     try {
-   const res = await axios.post(
-  "https://crm-system-staging-626e.up.railway.app/api/clients/upload",
-  formData,
-  {
-    headers: { "Content-Type": "multipart/form-data" }
-  }
-);
+      const token = localStorage.getItem("token");
+      const res = await axios.post(
+        "https://crm-system-staging-626e.up.railway.app/api/clients/upload",
+        formData,
+        {
+          headers: { 
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
 
       setResult(res.data);
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.error || "Upload failed");
+      
+      if (err.response?.status === 401) {
+        alert("Session expired. Please login again.");
+        localStorage.clear();
+        navigate("/login");
+      } else {
+        alert(err.response?.data?.error || "Upload failed");
+      }
     } finally {
       setLoading(false);
     }
@@ -98,8 +124,12 @@ const UploadClients = () => {
       'additional_requirements'
     ];
     
-    const csvContent = headers.join(',') + '\n' + 
-      'ABC Corporation,John Doe,0777 123 456,,john@example.com,123 Main St,P.O. Box 123,24/7 Surveillance,';
+    const exampleData = [
+      'ABC Corporation,John Doe,0777 123 456,,john@example.com,123 Main St,P.O. Box 123,24/7 Surveillance,',
+      'XYZ Security,Jane Smith,0888 987 654,0112 345 678,jane@xyz.com,456 Oak Ave,P.O. Box 456,Armed Response,After hours access required'
+    ];
+    
+    const csvContent = headers.join(',') + '\n' + exampleData.join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -112,37 +142,77 @@ const UploadClients = () => {
 
   return (
     <div className="upload-clients-container">
-      <div className="page-header">
-        <h1 className="page-title">Bulk Client Upload</h1>
-        <p className="page-subtitle">Import multiple clients at once using a CSV file</p>
+      {/* Security Background Elements */}
+      <div className="security-elements">
+        <div className="element element-1"><Shield /></div>
+        <div className="element element-2"><Database /></div>
+        <div className="element element-3"><Users /></div>
+        <div className="element element-4"><Lock /></div>
       </div>
 
+      {/* Page Header */}
+      <div className="page-header">
+        <div className="header-left">
+          <div className="header-icon">
+            <UploadCloud size={28} />
+          </div>
+          <div>
+            <h1 className="page-title">Bulk Client Upload</h1>
+            <p className="page-subtitle">
+              <span className="security-badge">
+                <Shield size={12} />
+                Secure Import
+              </span>
+              <span className="info-badge">
+                <Database size={12} />
+                CSV Format Only
+              </span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Upload Card */}
       <div className="upload-card">
         <div className="card-header">
-          <UploadCloud />
-          <div className="header-text">
-            <h2>CSV Upload</h2>
-            <p>Upload your CSV file with client data</p>
+          <div className="card-header-left">
+            <div className="card-icon">
+              <UploadCloud size={24} />
+            </div>
+            <div className="header-text">
+              <h2>CSV Import Wizard</h2>
+              <p>Upload and validate your client data</p>
+            </div>
+          </div>
+          <div className="card-badge">
+            <Clock size={14} />
+            <span>Real-time validation</span>
           </div>
         </div>
 
         <div className="card-content">
           {/* Upload Area */}
           <div 
-            className={`upload-area ${file ? 'has-file' : ''}`}
+            className={`upload-area ${file ? 'has-file' : ''} ${dragActive ? 'drag-active' : ''}`}
             onClick={() => fileInputRef.current?.click()}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
           >
             <UploadCloud className="upload-icon" />
             <h3 className="upload-title">
-              {file ? 'File ready to upload' : 'Drag & drop or click to browse'}
+              {file ? 'File ready for import' : 'Drag & drop or click to browse'}
             </h3>
             <p className="upload-hint">
               {file ? (
-                <>Selected: <strong>{file.name}</strong></>
+                <>
+                  <CheckCircle size={14} />
+                  <span>Selected: <strong>{file.name}</strong></span>
+                </>
               ) : (
-                <>Supported format: <strong>.CSV</strong> (Max size: 10MB)</>
+                <>
+                  Supported format: <strong>.CSV</strong> (Max size: 10MB)
+                </>
               )}
             </p>
           </div>
@@ -160,15 +230,19 @@ const UploadClients = () => {
           {file && (
             <div className="file-info">
               <div className="file-details">
-                <File />
-                <div>
+                <div className="file-icon">
+                  <FileText size={24} />
+                </div>
+                <div className="file-meta">
                   <p className="file-name">{file.name}</p>
                   <p className="file-size">{formatFileSize(file.size)}</p>
                 </div>
               </div>
-              <button onClick={removeFile} className="btn-remove">
-                <Trash2 />
-              </button>
+              <div className="file-actions">
+                <button onClick={removeFile} className="btn-remove" title="Remove file">
+                  <Trash2 size={18} />
+                </button>
+              </div>
             </div>
           )}
 
@@ -181,12 +255,13 @@ const UploadClients = () => {
             {loading ? (
               <>
                 <span className="spinner"></span>
-                Uploading...
+                Processing Upload...
               </>
             ) : (
               <>
-                <UploadCloud />
-                Upload and Process CSV
+                <UploadCloud size={20} />
+                Import {file ? file.name : 'CSV'} File
+                <ChevronRight size={20} />
               </>
             )}
           </button>
@@ -195,36 +270,57 @@ const UploadClients = () => {
           {result && (
             <div className="result-card">
               <div className={`result-header ${result.failed?.length > 0 ? 'warning' : 'success'}`}>
-                {result.failed?.length > 0 ? <AlertCircle /> : <CheckCircle />}
-                <h3>Upload Complete</h3>
+                {result.failed?.length > 0 ? (
+                  <AlertCircle size={24} />
+                ) : (
+                  <CheckCircle size={24} />
+                )}
+                <div>
+                  <h3>Upload Complete</h3>
+                  <p>
+                    {result.failed?.length > 0 
+                      ? 'Some rows could not be imported' 
+                      : 'All clients imported successfully'}
+                  </p>
+                </div>
               </div>
+
               <div className="result-content">
-                <div className="success-stats">
-                  <div className="stat-item">
+                {/* Stats Grid */}
+                <div className="stats-grid">
+                  <div className="stat-box">
+                    <div className="stat-label">Total Processed</div>
+                    <div className="stat-value primary">
+                      {(result.inserted || 0) + (result.failed?.length || 0)}
+                    </div>
+                  </div>
+                  <div className="stat-box">
                     <div className="stat-label">Successfully Imported</div>
                     <div className="stat-value success">{result.inserted || 0}</div>
                   </div>
-                  <div className="stat-item">
+                  <div className="stat-box">
                     <div className="stat-label">Failed Rows</div>
                     <div className="stat-value warning">{result.failed?.length || 0}</div>
                   </div>
                 </div>
 
+                {/* Failed Rows */}
                 {result.failed?.length > 0 && (
                   <div className="failed-rows">
                     <div className="failed-title">
-                      <XCircle />
-                      Failed Rows ({result.failed.length})
+                      <XCircle size={18} />
+                      <span>Failed Rows ({result.failed.length})</span>
                     </div>
                     <div className="failed-list">
                       {result.failed.map((f, i) => (
                         <div key={i} className="failed-item">
                           <div className="failed-row">
-                            Row {i + 1}: {JSON.stringify(f.row)}
+                            <span className="row-number">Row {f.rowNumber || i + 1}</span>
+                            <code>{JSON.stringify(f.row)}</code>
                           </div>
                           <div className="failed-reason">
                             <AlertCircle size={12} />
-                            {f.reason}
+                            <span>{f.reason}</span>
                           </div>
                         </div>
                       ))}
@@ -237,32 +333,55 @@ const UploadClients = () => {
         </div>
       </div>
 
-      {/* CSV Template Section */}
+      {/* Template Section */}
       <div className="template-section">
         <div className="template-header">
-          <Info />
-          <h4>CSV Format Requirements</h4>
-        </div>
-        <div className="template-content">
-          <div className="template-columns">
-            <span className="column-tag required">business_name *</span>
-            <span className="column-tag required">owner_name *</span>
-            <span className="column-tag required">owner_phone *</span>
-            <span className="column-tag">landline</span>
-            <span className="column-tag">owner_email</span>
-            <span className="column-tag">physical_address</span>
-            <span className="column-tag">postal_address</span>
-            <span className="column-tag">security_complement</span>
-            <span className="column-tag">additional_requirements</span>
+          <div className="template-icon">
+            <FileText size={20} />
           </div>
-          <button onClick={downloadTemplate} className="btn-download">
-            <Download size={16} />
-            Download Template
-          </button>
+          <div>
+            <h3>CSV Template & Requirements</h3>
+            <p>Download our template to ensure correct formatting</p>
+          </div>
         </div>
-        <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '1rem' }}>
-          * Required fields. The CSV file must include the header row with exact column names shown above.
-        </p>
+
+        <div className="template-content">
+          <div className="columns-list">
+            <h4>Required Columns:</h4>
+            <div className="column-tags">
+              <span className="column-tag required">business_name *</span>
+              <span className="column-tag required">owner_name *</span>
+              <span className="column-tag required">owner_phone *</span>
+              <span className="column-tag">landline</span>
+              <span className="column-tag">owner_email</span>
+              <span className="column-tag">physical_address</span>
+              <span className="column-tag">postal_address</span>
+              <span className="column-tag">security_complement</span>
+              <span className="column-tag">additional_requirements</span>
+            </div>
+          </div>
+
+          <div className="template-actions">
+            <button onClick={downloadTemplate} className="btn-download">
+              <Download size={16} />
+              Download Template CSV
+            </button>
+          </div>
+        </div>
+
+        <div className="template-footer">
+          <Info size={14} />
+          <span>
+            The CSV file must include a header row with exact column names as shown above. 
+            Fields marked with * are required.
+          </span>
+        </div>
+      </div>
+
+      {/* Security Note */}
+      <div className="security-note">
+        <Lock size={14} />
+        <span>All uploaded data is encrypted and processed securely</span>
       </div>
     </div>
   );

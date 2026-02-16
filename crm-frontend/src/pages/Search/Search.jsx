@@ -1,3 +1,4 @@
+// src/pages/Search/Search.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -13,20 +14,36 @@ import {
   UploadCloud,
   CheckCircle,
   XCircle,
+  Shield,
+  Briefcase,
+  Mail,
+  MapPin,
+  FileText,
+  Download,
+  Filter,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Clock,
+  AlertCircle
 } from "lucide-react";
-
 import "./Search.css";
 
 const Search = () => {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [csvFile, setCsvFile] = useState(null);
   const [csvData, setCsvData] = useState([]);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [selectedClients, setSelectedClients] = useState([]);
+  const [showFilters, setShowFilters] = useState(false);
 
   const navigate = useNavigate();
-
   const token = localStorage.getItem("token");
 
   /* ============================
@@ -118,6 +135,7 @@ const Search = () => {
       );
 
       setResults(results.filter((c) => c.id !== id));
+      setSelectedClients(selectedClients.filter(clientId => clientId !== id));
     } catch (err) {
       console.error(err);
 
@@ -128,6 +146,18 @@ const Search = () => {
         alert("Failed to delete client");
       }
     }
+  };
+
+  /* ============================
+     BULK DELETE
+  ============================ */
+  const handleBulkDelete = () => {
+    if (selectedClients.length === 0) return;
+    
+    if (!window.confirm(`Are you sure you want to delete ${selectedClients.length} clients?`)) return;
+    
+    // Delete each selected client
+    selectedClients.forEach(id => handleDelete(id));
   };
 
   /* ============================
@@ -205,6 +235,69 @@ const Search = () => {
   };
 
   /* ============================
+     SORTING
+  ============================ */
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedResults = React.useMemo(() => {
+    let sortableItems = [...results];
+    if (sortConfig.key !== null) {
+      sortableItems.sort((a, b) => {
+        if (a[sortConfig.key] < b[sortConfig.key]) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (a[sortConfig.key] > b[sortConfig.key]) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [results, sortConfig]);
+
+  /* ============================
+     FILTERING
+  ============================ */
+  const filteredResults = React.useMemo(() => {
+    if (filterStatus === 'all') return sortedResults;
+    // Add your filtering logic here based on client status
+    return sortedResults;
+  }, [sortedResults, filterStatus]);
+
+  /* ============================
+     PAGINATION
+  ============================ */
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredResults.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredResults.length / itemsPerPage);
+
+  /* ============================
+     SELECT ALL
+  ============================ */
+  const handleSelectAll = () => {
+    if (selectedClients.length === currentItems.length) {
+      setSelectedClients([]);
+    } else {
+      setSelectedClients(currentItems.map(c => c.id));
+    }
+  };
+
+  const handleSelectClient = (id) => {
+    if (selectedClients.includes(id)) {
+      setSelectedClients(selectedClients.filter(clientId => clientId !== id));
+    } else {
+      setSelectedClients([...selectedClients, id]);
+    }
+  };
+
+  /* ============================
      INITIAL LOAD
   ============================ */
   useEffect(() => {
@@ -231,32 +324,50 @@ const Search = () => {
   ============================ */
   return (
     <div className="search-container">
+      {/* Security Background Elements */}
+      <div className="security-elements">
+        <div className="element element-1"><Shield /></div>
+        <div className="element element-2"><Briefcase /></div>
+        <div className="element element-3"><Users /></div>
+        <div className="element element-4"><FileText /></div>
+      </div>
 
-      {/* Header */}
+      {/* Page Header */}
       <div className="page-header">
-        <h1 className="page-title">Client Directory</h1>
-        <p className="page-subtitle">
-          <span className="status-dot"></span>
-          Manage and search your client database
-        </p>
+        <div className="header-left">
+          <div className="header-icon">
+            <Users size={28} />
+          </div>
+          <div>
+            <h1 className="page-title">Client Directory</h1>
+            <p className="page-subtitle">
+              <span className="security-badge">
+                <Shield size={12} />
+                Secure Database
+              </span>
+              <span className="status-badge">
+                <span className="status-dot"></span>
+                {results.length} Total Records
+              </span>
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Action Bar */}
       <div className="action-bar">
-
         <div className="action-buttons">
           <button
             onClick={() => navigate("/add-client")}
             className="btn-primary"
           >
-            <UserPlus />
+            <UserPlus size={18} />
             Add Client
           </button>
 
           <label className="btn-success">
-            <UploadCloud />
+            <UploadCloud size={18} />
             Upload CSV
-
             <input
               type="file"
               accept=".csv"
@@ -264,33 +375,53 @@ const Search = () => {
               onChange={handleCsvChange}
             />
           </label>
+
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`btn-filter ${showFilters ? 'active' : ''}`}
+          >
+            <Filter size={18} />
+            Filters
+          </button>
+
+          {selectedClients.length > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              className="btn-danger"
+            >
+              <Trash2 size={18} />
+              Delete Selected ({selectedClients.length})
+            </button>
+          )}
         </div>
 
-        <div className="total-badge">
-          <span className="total-label">Total:</span>
-          <span className="total-count">{results.length}</span>
+        <div className="action-info">
+          <div className="total-badge">
+            <span className="total-label">Total Records:</span>
+            <span className="total-count">{results.length}</span>
+          </div>
+          <button className="btn-export">
+            <Download size={16} />
+            Export
+          </button>
         </div>
-
       </div>
 
       {/* CSV Preview */}
       {csvData.length > 0 && (
         <div className="csv-preview">
-
           <div className="preview-header">
             <div className="preview-title">
-              <CheckCircle />
+              <CheckCircle size={20} />
               <h3>CSV Preview</h3>
             </div>
-
             <span className="preview-stats">
-              {csvData.length} rows
+              {csvData.length} rows ready to import
             </span>
           </div>
 
           <div className="preview-table-container">
             <table className="preview-table">
-
               <thead>
                 <tr>
                   {Object.keys(csvData[0]).map((h) => (
@@ -298,7 +429,6 @@ const Search = () => {
                   ))}
                 </tr>
               </thead>
-
               <tbody>
                 {csvData.slice(0, 5).map((row, i) => (
                   <tr key={i}>
@@ -308,125 +438,175 @@ const Search = () => {
                   </tr>
                 ))}
               </tbody>
-
             </table>
           </div>
 
           <div className="preview-actions">
             <button
+              onClick={() => {
+                setCsvFile(null);
+                setCsvData([]);
+              }}
+              className="btn-cancel"
+            >
+              Cancel
+            </button>
+            <button
               onClick={handleCsvSubmit}
               className="btn-submit-csv"
             >
               <UploadCloud size={16} />
-              Submit CSV
+              Import {csvData.length} Clients
             </button>
           </div>
-
         </div>
       )}
 
-      {/* Search */}
-      <div className="search-card">
+      {/* Filters Panel */}
+      {showFilters && (
+        <div className="filters-panel">
+          <div className="filters-header">
+            <h3>Filter Clients</h3>
+            <button onClick={() => setShowFilters(false)}>
+              <XCircle size={18} />
+            </button>
+          </div>
+          <div className="filters-grid">
+            <div className="filter-group">
+              <label>Status</label>
+              <select 
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">All Clients</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+            <div className="filter-group">
+              <label>Security Level</label>
+              <select className="filter-select">
+                <option>All Levels</option>
+                <option>High</option>
+                <option>Medium</option>
+                <option>Low</option>
+              </select>
+            </div>
+            <div className="filter-group">
+              <label>Date Added</label>
+              <select className="filter-select">
+                <option>Any Time</option>
+                <option>Last 7 days</option>
+                <option>Last 30 days</option>
+                <option>Last 90 days</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
 
+      {/* Search Bar */}
+      <div className="search-card">
         <div className="search-wrapper">
           <SearchIcon className="search-icon" size={20} />
-
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search clients..."
+            placeholder="Search by business name, owner name, or phone number..."
             className="search-input"
           />
-
           {query && (
-            <button
-              onClick={clearSearch}
-              className="clear-search"
-            >
+            <button onClick={clearSearch} className="clear-search">
               <XCircle size={18} />
             </button>
           )}
         </div>
 
         <div className="search-stats">
-
-          <div className="total-badge">
-            <span className="total-label">Showing:</span>
-            <span className="total-count">
-              {results.length}
+          <div className="search-info">
+            <Clock size={14} />
+            <span>
+              Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredResults.length)} of {filteredResults.length} results
             </span>
           </div>
-
           {query && (
             <div className="search-query">
-              Results for <strong>{query}</strong>
+              Results for "<strong>{query}</strong>"
             </div>
           )}
-
         </div>
       </div>
 
       {/* Results */}
       <div className="results-card">
-
         {loading ? (
-
           <div className="loading-state">
             <div className="spinner-large"></div>
-            <p>Loading clients...</p>
+            <p>Loading client database...</p>
+            <p className="loading-hint">Please wait</p>
           </div>
-
-        ) : results.length === 0 ? (
-
+        ) : filteredResults.length === 0 ? (
           <div className="empty-state">
-
             <div className="empty-state-icon">
-              <Users />
+              <Users size={48} />
             </div>
-
             <h3>No clients found</h3>
-
+            <p>Try adjusting your search or add a new client</p>
             <button
               onClick={() => navigate("/add-client")}
               className="btn-primary"
             >
-              <UserPlus />
-              Add Client
+              <UserPlus size={18} />
+              Add New Client
             </button>
-
           </div>
-
         ) : (
-
           <>
-            {/* Desktop */}
+            {/* Desktop Table */}
             <div className="desktop-table">
-
               <table className="client-table">
-
                 <thead>
                   <tr>
-                    <th>#</th>
-                    <th>
-                      <Building2 size={14} /> Business
+                    <th className="checkbox-cell">
+                      <input
+                        type="checkbox"
+                        checked={selectedClients.length === currentItems.length && currentItems.length > 0}
+                        onChange={handleSelectAll}
+                        className="checkbox"
+                      />
                     </th>
-                    <th>
-                      <User size={14} /> Owner
+                    <th onClick={() => requestSort('id')} className="sortable">
+                      # <ArrowUpDown size={12} />
+                    </th>
+                    <th onClick={() => requestSort('business_name')} className="sortable">
+                      <Building2 size={14} /> Business <ArrowUpDown size={12} />
+                    </th>
+                    <th onClick={() => requestSort('owner_name')} className="sortable">
+                      <User size={14} /> Owner <ArrowUpDown size={12} />
                     </th>
                     <th>
                       <Phone size={14} /> Phone
                     </th>
+                    <th>
+                      <Shield size={14} /> Security
+                    </th>
                     <th>Actions</th>
                   </tr>
                 </thead>
-
                 <tbody>
-                  {results.map((c, i) => (
-                    <tr key={c.id}>
-
-                      <td>{i + 1}</td>
-
+                  {currentItems.map((c, i) => (
+                    <tr key={c.id} className={selectedClients.includes(c.id) ? 'selected' : ''}>
+                      <td className="checkbox-cell">
+                        <input
+                          type="checkbox"
+                          checked={selectedClients.includes(c.id)}
+                          onChange={() => handleSelectClient(c.id)}
+                          className="checkbox"
+                        />
+                      </td>
+                      <td className="client-id">{String(c.id).slice(0, 4)}</td>
                       <td>
                         <button
                           onClick={() => navigate(`/client/${c.id}`)}
@@ -435,63 +615,71 @@ const Search = () => {
                           {c.business_name}
                         </button>
                       </td>
-
                       <td>{c.owner_name}</td>
-
                       <td>
-                        <a
-                          href={`tel:${c.owner_phone}`}
-                          className="phone-link"
-                        >
+                        <a href={`tel:${c.owner_phone}`} className="phone-link">
                           <Phone size={14} />
                           {c.owner_phone}
                         </a>
                       </td>
-
+                      <td>
+                        <span className="security-tag">
+                          <Shield size={12} />
+                          {c.security_complement || 'Standard'}
+                        </span>
+                      </td>
                       <td>
                         <div className="action-group">
-
                           <button
-                            onClick={() =>
-                              navigate(`/edit-client/${c.id}`)
-                            }
+                            onClick={() => navigate(`/client/${c.id}`)}
+                            className="btn-view"
+                            title="View Profile"
+                          >
+                            <Eye size={16} />
+                          </button>
+                          <button
+                            onClick={() => navigate(`/edit-client/${c.id}`)}
                             className="btn-edit"
+                            title="Edit Client"
                           >
                             <Edit size={16} />
-                            Edit
                           </button>
-
                           <button
                             onClick={() => handleDelete(c.id)}
                             className="btn-delete"
+                            title="Delete Client"
                           >
                             <Trash2 size={16} />
-                            Delete
                           </button>
-
                         </div>
                       </td>
-
                     </tr>
                   ))}
                 </tbody>
-
               </table>
-
             </div>
 
-            {/* Mobile */}
+            {/* Mobile Cards */}
             <div className="mobile-cards">
-
-              {results.map((c, i) => (
+              {currentItems.map((c, i) => (
                 <div key={c.id} className="client-card">
-
                   <div className="card-header">
-
-                    <span className="client-number">
-                      #{i + 1}
+                    <div className="card-header-left">
+                      <input
+                        type="checkbox"
+                        checked={selectedClients.includes(c.id)}
+                        onChange={() => handleSelectClient(c.id)}
+                        className="checkbox"
+                      />
+                      <span className="client-number">#{String(c.id).slice(0, 4)}</span>
+                    </div>
+                    <span className="security-tag">
+                      <Shield size={12} />
+                      {c.security_complement || 'Standard'}
                     </span>
+                  </div>
 
+                  <div className="card-body">
                     <button
                       onClick={() => navigate(`/client/${c.id}`)}
                       className="client-name-mobile"
@@ -499,34 +687,33 @@ const Search = () => {
                       {c.business_name}
                     </button>
 
-                  </div>
-
-                  <div className="client-details">
-
-                    <div className="detail-item">
-                      <User size={16} />
-                      {c.owner_name}
+                    <div className="client-details">
+                      <div className="detail-item">
+                        <User size={16} />
+                        <span>{c.owner_name}</span>
+                      </div>
+                      <div className="detail-item">
+                        <Phone size={16} />
+                        <a href={`tel:${c.owner_phone}`}>{c.owner_phone}</a>
+                      </div>
                     </div>
-
-                    <div className="detail-item">
-                      <Phone size={16} />
-                      {c.owner_phone}
-                    </div>
-
                   </div>
 
                   <div className="mobile-actions">
-
                     <button
-                      onClick={() =>
-                        navigate(`/edit-client/${c.id}`)
-                      }
+                      onClick={() => navigate(`/client/${c.id}`)}
+                      className="btn-view"
+                    >
+                      <Eye size={16} />
+                      View
+                    </button>
+                    <button
+                      onClick={() => navigate(`/edit-client/${c.id}`)}
                       className="btn-edit"
                     >
                       <Edit size={16} />
                       Edit
                     </button>
-
                     <button
                       onClick={() => handleDelete(c.id)}
                       className="btn-delete"
@@ -534,18 +721,62 @@ const Search = () => {
                       <Trash2 size={16} />
                       Delete
                     </button>
-
                   </div>
-
                 </div>
               ))}
-
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="pagination-btn"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                
+                {[...Array(totalPages)].map((_, i) => (
+                  <button
+                    key={i + 1}
+                    onClick={() => setCurrentPage(i + 1)}
+                    className={`pagination-btn ${currentPage === i + 1 ? 'active' : ''}`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+                
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="pagination-btn"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
           </>
         )}
-
       </div>
 
+      {/* Footer Stats */}
+      <div className="search-footer">
+        <div className="footer-stats">
+          <div className="stat-item">
+            <Users size={14} />
+            <span>{results.length} Total Clients</span>
+          </div>
+          <div className="stat-item">
+            <Shield size={14} />
+            <span>Encrypted Database</span>
+          </div>
+          <div className="stat-item">
+            <Clock size={14} />
+            <span>Updated in real-time</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
