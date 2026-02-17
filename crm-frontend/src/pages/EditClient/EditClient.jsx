@@ -103,58 +103,57 @@ const EditClient = () => {
     return newErrors;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Validate form
-    const newErrors = validateForm();
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      // Scroll to first error
-      const firstErrorField = document.querySelector('[data-error="true"]');
-      if (firstErrorField) {
-        firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      return;
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  // Validate form
+  const newErrors = validateForm();
+  if (Object.keys(newErrors).length > 0) {
+    setErrors(newErrors);
+    const firstErrorField = document.querySelector('[data-error="true"]');
+    if (firstErrorField) firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  setSubmitting(true);
+  setErrors({});
+  setSuccessMessage("");
+
+  try {
+    const token = localStorage.getItem("token");
+
+    await axios.put(
+      `https://crm-system-staging-626e.up.railway.app/api/clients/${id}`,
+      formData,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    setSuccessMessage(`Client "${formData.business_name}" updated successfully!`);
+    setLastUpdated(new Date().toLocaleString());
+
+    // Redirect after showing success message
+    setTimeout(() => {
+      setSuccessMessage("");
+      navigate(`/client/${id}`); // Redirect to client detail page
+    }, 1500); // Show message for 1.5s
+
+  } catch (err) {
+    console.error(err);
+
+    if (err.response?.status === 401) {
+      alert("Session expired. Please login again.");
+      localStorage.clear();
+      navigate("/login");
+    } else if (err.response?.status === 400) {
+      setErrors(err.response.data.errors || { general: "Please check your input and try again." });
+    } else {
+      setErrors({ general: "Error updating client. Please try again." });
     }
+  } finally {
+    setSubmitting(false);
+  }
+};
 
-    setSubmitting(true);
-    setErrors({});
-    setSuccessMessage("");
-
-    try {
-      const token = localStorage.getItem("token");
-
-      await axios.put(
-        `https://crm-system-staging-626e.up.railway.app/api/clients/${id}`,
-        formData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      setSuccessMessage(`Client "${formData.business_name}" updated successfully!`);
-      setLastUpdated(new Date().toLocaleString());
-      
-      // Hide success message after 3 seconds
-      setTimeout(() => {
-        setSuccessMessage("");
-      }, 3000);
-
-    } catch (err) {
-      console.error(err);
-      
-      if (err.response?.status === 401) {
-        alert("Session expired. Please login again.");
-        localStorage.clear();
-        navigate("/login");
-      } else if (err.response?.status === 400) {
-        setErrors(err.response.data.errors || { general: "Please check your input and try again." });
-      } else {
-        setErrors({ general: "Error updating client. Please try again." });
-      }
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const formSections = [
     {

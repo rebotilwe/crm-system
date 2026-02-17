@@ -729,6 +729,81 @@ app.put("/api/auth/preferences", verifyToken, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+/* =====================
+   Admin Management (PROTECTED)
+===================== */
+
+// Get all admins
+app.get("/api/admins", verifyToken, async (req, res) => {
+  try {
+    // Only return non-sensitive info
+    const [results] = await db.query(
+      "SELECT id, name, email, role, created_at FROM users WHERE role IN ('admin', 'super_admin', 'controller') ORDER BY created_at DESC"
+    );
+    res.json(results);
+  } catch (err) {
+    console.error("Fetch Admins Error:", err.message);
+    res.status(500).json({ error: "Failed to fetch administrators" });
+  }
+});
+
+// Add new admin
+app.post("/api/admins", verifyToken, async (req, res) => {
+  const { name, email, password, role } = req.body;
+
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: "Name, email, and password are required" });
+  }
+
+  try {
+    // Check if user already exists
+    const [existing] = await db.query("SELECT id FROM users WHERE email = ?", [email]);
+    if (existing.length > 0) {
+      return res.status(400).json({ message: "User with this email already exists" });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const userRole = role || 'admin';
+
+    const [result] = await db.query(
+      "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
+      [name, email, hashedPassword, userRole]
+    );
+
+    // Log the action
+    await db.query(
+      "INSERT INTO activity_logs (user_id, action_type, action, details) VALUES (?, 'system', 'Admin created', ?)",
+      [req.user.id, `Created new admin account: ${email}`]
+    );
+
+    res.status(201).json({ message: "Admin created successfully", id: result.insertId });
+  } catch (err) {
+    console.error("Add Admin Error:", err.message);
+    res.status(500).json({ error: "Failed to create admin" });
+  }
+});
+
+// Delete admin
+app.delete("/api/admins/:id", verifyToken, async (req, res) => {
+  // Prevent admin from deleting themselves
+  if (parseInt(req.params.id) === req.user.id) {
+    return res.status(400).json({ message: "You cannot delete your own account" });
+  }
+
+  try {
+    const [result] = await db.query("DELETE FROM users WHERE id = ?", [req.params.id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    res.json({ message: "Admin deleted successfully" });
+  } catch (err) {
+    console.error("Delete Admin Error:", err.message);
+    res.status(500).json({ error: "Failed to delete administrator" });
+  }
+});
 
 /* =====================
    Start Server
