@@ -75,6 +75,7 @@ app.post("/api/auth/login", async (req, res) => {
     const sql = `
       SELECT * FROM users 
       WHERE email = ? 
+      AND is_active = 1
       AND role IN ('super_admin','admin','controller')
     `;
 
@@ -804,7 +805,36 @@ app.delete("/api/admins/:id", verifyToken, async (req, res) => {
     res.status(500).json({ error: "Failed to delete administrator" });
   }
 });
+// Toggle Admin Status (Active/Inactive)
+app.patch("/api/admins/:id/status", verifyToken, async (req, res) => {
+  const { is_active } = req.body;
 
+  // Prevent self-deactivation
+  if (parseInt(req.params.id) === req.user.id) {
+    return res.status(400).json({ message: "You cannot deactivate your own account" });
+  }
+
+  try {
+    const [result] = await db.query(
+      "UPDATE users SET is_active = ? WHERE id = ?",
+      [is_active, req.params.id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    // Log the change
+    await db.query(
+      "INSERT INTO activity_logs (user_id, action_type, action, details) VALUES (?, 'system', ?, ?)",
+      [req.user.id, is_active ? 'Admin Activated' : 'Admin Deactivated', `Changed status for ID: ${req.params.id}`]
+    );
+
+    res.json({ message: `Admin ${is_active ? 'activated' : 'deactivated'} successfully` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 /* =====================
    Start Server
 ===================== */

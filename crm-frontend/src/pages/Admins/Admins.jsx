@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../api/axios";
 import { 
   UserPlus, 
   Users, 
@@ -8,17 +8,25 @@ import {
   Lock, 
   User,
   Shield,
-  AlertCircle 
+  AlertCircle,
+  Loader2,
+  CheckCircle2,
+  Power
 } from "lucide-react";
 import "./Admins.css";
 
 const Admins = () => {
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState("");
+  const [error, setError] = useState("");
+  
   const [form, setForm] = useState({ 
     name: "", 
     email: "", 
-    password: "" 
+    password: "",
+    role: "admin"
   });
 
   useEffect(() => {
@@ -28,17 +36,10 @@ const Admins = () => {
   const fetchAdmins = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
-  // Fetch admins
-const res = await axios.get(
-  "https://crm-system-staging-626e.up.railway.app/api/admins",
-  { headers: { Authorization: `Bearer ${token}` } }
-);
-
-
+      const res = await api.get("/admins");
       setAdmins(res.data);
     } catch (err) {
-      console.error(err);
+      setError("Could not load administrators list.");
     } finally {
       setLoading(false);
     }
@@ -46,36 +47,40 @@ const res = await axios.get(
 
   const addAdmin = async (e) => {
     e.preventDefault();
-    try {
-      const token = localStorage.getItem("token");
-   // Add admin
-await axios.post(
-  "https://crm-system-staging-626e.up.railway.app/api/admins",
-  form,
-  { headers: { Authorization: `Bearer ${token}` } }
-);
+    setError("");
+    setSuccess("");
+    setSubmitting(true);
 
-      setForm({ name: "", email: "", password: "" });
+    try {
+      await api.post("/admins", form);
+      setSuccess(`Account for ${form.name} created successfully!`);
+      setForm({ name: "", email: "", password: "", role: "admin" });
+      fetchAdmins();
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || "Error creating admin account.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const toggleStatus = async (id, currentStatus) => {
+    try {
+      // Logic: if currentStatus is 1 (true), send 0 (false)
+      await api.patch(`/admins/${id}/status`, { is_active: currentStatus ? 0 : 1 });
       fetchAdmins();
     } catch (err) {
-      console.error(err);
-      alert("Error adding admin. Please try again.");
+      alert(err.response?.data?.message || "Failed to update status");
     }
   };
 
   const deleteAdmin = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this admin?")) return;
+    if (!window.confirm("Are you sure? This action is permanent.")) return;
     try {
-      const token = localStorage.getItem("token");
-   await axios.delete(
-  `https://crm-system-staging-626e.up.railway.app/api/admins/${id}`,
-  { headers: { Authorization: `Bearer ${token}` } }
-);
-
+      await api.delete(`/admins/${id}`);
       fetchAdmins();
     } catch (err) {
-      console.error(err);
-      alert("Error deleting admin. Please try again.");
+      alert(err.response?.data?.message || "Error deleting admin.");
     }
   };
 
@@ -83,164 +88,106 @@ await axios.post(
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // Get initials from name
   const getInitials = (name) => {
-    return name
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+    return name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : "??";
   };
 
   return (
     <div className="admins-container">
       <div className="page-header">
         <h1 className="page-title">Admin Management</h1>
-        <p className="page-subtitle">Manage system administrators and their permissions</p>
+        <p className="page-subtitle">Manage system access and permissions</p>
       </div>
 
       <div className="content-grid">
-        {/* Add Admin Form Card */}
         <div className="form-card">
           <div className="card-header">
-            <UserPlus />
-            <h2>Add New Admin</h2>
+            <UserPlus className="header-icon" />
+            <h2>Create New User</h2>
           </div>
+          
           <div className="card-content">
+            {success && <div className="alert-message success-alert"><CheckCircle2 size={18} /> {success}</div>}
+            {error && <div className="alert-message error-alert"><AlertCircle size={18} /> {error}</div>}
+
             <form onSubmit={addAdmin} className="admin-form">
               <div className="form-group">
-                <label className="form-label">
-                  <User />
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  placeholder="e.g., John Doe"
-                  value={form.name}
-                  onChange={handleChange}
-                  className="form-input"
-                  required
-                />
+                <label className="form-label"><User size={16} /> Full Name</label>
+                <input type="text" name="name" value={form.name} onChange={handleChange} className="form-input" required />
               </div>
-
               <div className="form-group">
-                <label className="form-label">
-                  <Mail />
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  placeholder="admin@example.com"
-                  value={form.email}
-                  onChange={handleChange}
-                  className="form-input"
-                  required
-                />
+                <label className="form-label"><Mail size={16} /> Email Address</label>
+                <input type="email" name="email" value={form.email} onChange={handleChange} className="form-input" required />
               </div>
-
               <div className="form-group">
-                <label className="form-label">
-                  <Lock />
-                  Password
-                </label>
-                <input
-                  type="password"
-                  name="password"
-                  placeholder="••••••••"
-                  value={form.password}
-                  onChange={handleChange}
-                  className="form-input"
-                  required
-                />
-                <span className="password-hint">
-                  <AlertCircle size={14} />
-                  Minimum 8 characters
-                </span>
+                <label className="form-label"><Lock size={16} /> Password</label>
+                <input type="password" name="password" value={form.password} onChange={handleChange} className="form-input" required minLength={8} />
               </div>
-
-              <button type="submit" className="btn-submit">
-                <UserPlus size={18} />
-                Create Admin Account
+              <div className="form-group">
+                <label className="form-label"><Shield size={16} /> Role</label>
+                <select name="role" value={form.role} onChange={handleChange} className="form-input">
+                  <option value="admin">Administrator</option>
+                  <option value="controller">Controller</option>
+                  <option value="super_admin">Super Admin</option>
+                </select>
+              </div>
+              <button type="submit" className="btn-submit" disabled={submitting}>
+                {submitting ? <Loader2 className="spinner" size={18} /> : <><UserPlus size={18} /> Create Account</>}
               </button>
             </form>
           </div>
         </div>
 
-        {/* Admin List Card */}
         <div className="list-card">
           <div className="list-header">
-            <div className="list-title">
-              <Users />
-              <h2>System Administrators</h2>
-            </div>
-            <span className="admin-count">
-              {admins.length} {admins.length === 1 ? 'Admin' : 'Admins'}
-            </span>
+            <div className="list-title"><Users /> <h2>Active Staff</h2></div>
+            <span className="admin-count">{admins.length} Users</span>
           </div>
 
           <div className="table-responsive">
             {loading ? (
-              <div className="loading-state">
-                <div className="spinner"></div>
-                <p>Loading administrators...</p>
-              </div>
+              <div className="loading-state"><Loader2 className="spinner" size={32} /><p>Loading...</p></div>
             ) : (
               <table className="admin-table">
                 <thead>
                   <tr>
-                    <th>Administrator</th>
+                    <th>Staff Member</th>
                     <th>Role</th>
-                    <th>Actions</th>
+                    <th>Status & Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {admins.length > 0 ? (
-                    admins.map((admin) => (
-                      <tr key={admin.id}>
-                        <td>
-                          <div className="admin-info">
-                            <div className="admin-avatar">
-                              {getInitials(admin.name)}
-                            </div>
-                            <div className="admin-details">
-                              <span className="admin-name">{admin.name}</span>
-                              <span className="admin-email">{admin.email}</span>
-                            </div>
+                  {admins.map((admin) => (
+                    <tr key={admin.id}>
+                      <td>
+                        <div className="admin-info">
+                          <div className="admin-avatar">{getInitials(admin.name)}</div>
+                          <div className="admin-details">
+                            <span className="admin-name">{admin.name}</span>
+                            <span className="admin-email">{admin.email}</span>
                           </div>
-                        </td>
-                        <td>
-                          <span className={`role-badge ${admin.role?.toLowerCase().replace('_', '-') || 'admin'}`}>
-                            <Shield size={12} style={{ marginRight: '4px' }} />
-                            {admin.role?.replace('_', ' ') || 'Admin'}
-                          </span>
-                        </td>
-                        <td>
-                          <button
-                            onClick={() => deleteAdmin(admin.id)}
-                            className="btn-delete"
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`role-badge ${admin.role?.toLowerCase()}`}>
+                          {admin.role?.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="action-buttons">
+                          <button 
+                            onClick={() => toggleStatus(admin.id, admin.is_active)}
+                            className={`btn-status ${admin.is_active ? 'active' : 'inactive'}`}
                           >
-                            <Trash2 size={16} />
-                            Delete
+                            <Power size={12} /> {admin.is_active ? "Active" : "Disabled"}
                           </button>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={3}>
-                        <div className="empty-state">
-                          <Users size={48} />
-                          <p>No administrators found</p>
-                          <p className="empty-subtitle">
-                            Add your first admin using the form
-                          </p>
+                          <button onClick={() => deleteAdmin(admin.id)} className="btn-delete-icon">
+                            <Trash2 size={16} />
+                          </button>
                         </div>
                       </td>
                     </tr>
-                  )}
+                  ))}
                 </tbody>
               </table>
             )}
