@@ -129,6 +129,7 @@ app.post("/api/auth/login", async (req, res) => {
 ===================== */
 
 // Add client
+// In your server.js, update the /api/clients POST route
 app.post("/api/clients", verifyToken, async (req, res) => {
   const {
     business_name,
@@ -170,18 +171,24 @@ app.post("/api/clients", verifyToken, async (req, res) => {
       );
     } catch (logErr) {
       console.error("Failed to log activity:", logErr);
+      // Don't fail the request if logging fails
     }
 
-    res.json({
+    // IMPORTANT: Send a success response with 201 status
+    res.status(201).json({
       message: "Client added successfully",
       id: result.insertId,
+      client: {
+        id: result.insertId,
+        business_name
+      }
     });
 
   } catch (err) {
+    console.error("Error adding client:", err);
     res.status(500).json({ error: err.message });
   }
 });
-
 // Get all clients / search
 app.get("/api/clients", verifyToken, async (req, res) => {
   const search = req.query.search;

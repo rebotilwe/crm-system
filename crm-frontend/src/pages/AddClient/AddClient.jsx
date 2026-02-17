@@ -80,92 +80,108 @@ const AddClient = () => {
     return newErrors;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    console.log("📝 AddClient - Starting submission");
-    console.log("📝 AddClient - Form data:", formData);
-    
-    // Validate form
-    const newErrors = validateForm();
-    if (Object.keys(newErrors).length > 0) {
-      console.log("📝 AddClient - Validation errors:", newErrors);
-      setErrors(newErrors);
-      // Scroll to first error
-      const firstErrorField = document.querySelector('[data-error="true"]');
-      if (firstErrorField) {
-        firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  console.log("📝 AddClient - Starting submission");
+  console.log("📝 AddClient - Form data:", formData);
+
+  // Validate form
+  const newErrors = validateForm();
+  if (Object.keys(newErrors).length > 0) {
+    console.log("📝 AddClient - Validation errors:", newErrors);
+    setErrors(newErrors);
+    const firstErrorField = document.querySelector('[data-error="true"]');
+    if (firstErrorField) {
+      firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    return;
+  }
+
+  setLoading(true);
+  setErrors({});
+  setSuccessMessage("");
+
+  try {
+    const token = localStorage.getItem("token");
+    console.log("📝 AddClient - Token exists:", !!token);
+
+    if (!token) {
+      alert("Session expired. Please login again.");
+      navigate("/login");
       return;
     }
 
-    setLoading(true);
-    setErrors({});
-
-    try {
-      const token = localStorage.getItem("token");
-      console.log("📝 AddClient - Token exists:", !!token);
-
-      if (!token) {
-        console.log("📝 AddClient - No token found!");
-        alert("Session expired. Please login again.");
-        navigate("/login");
-        return;
+    const res = await axios.post(
+      "https://crm-system-staging-626e.up.railway.app/api/clients",
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
       }
+    );
 
-      console.log("📝 AddClient - Making API request to: https://crm-system-staging-626e.up.railway.app/api/clients");
-      
-      const res = await axios.post(
-        "https://crm-system-staging-626e.up.railway.app/api/clients",
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-        }
-      );
+    console.log("📝 AddClient - Response received:", res.data);
 
-      console.log("📝 AddClient - Response received:", res.data);
-      console.log("📝 AddClient - Response status:", res.status);
+    // ✅ Success: show message
+    setSuccessMessage(`Client "${formData.business_name}" added successfully!`);
 
-      setSuccessMessage(`Client "${formData.business_name}" added successfully!`);
-      
-      // Show success message and redirect after 2 seconds
-      setTimeout(() => {
-        navigate("/");
-      }, 2000);
+    // Optional: reset form for next client
+    setFormData({
+      business_name: "",
+      owner_name: "",
+      owner_phone: "",
+      landline: "",
+      owner_email: "",
+      physical_address: "",
+      postal_address: "",
+      security_complement: "",
+      additional_requirements: "",
+    });
 
-    } catch (err) {
-      console.error("📝 AddClient - Error caught:", err);
-      console.error("📝 AddClient - Error response:", err.response);
-      console.error("📝 AddClient - Error status:", err.response?.status);
-      console.error("📝 AddClient - Error data:", err.response?.data);
-      console.error("📝 AddClient - Error message:", err.message);
+    // Optional: redirect after 2 seconds
+    setTimeout(() => {
+      navigate("/"); // Redirect to client list or dashboard
+    }, 2000);
 
-      if (err.code === 'ERR_NETWORK') {
-        console.log("📝 AddClient - Network error detected");
-        setErrors({ general: "Network error. Please check your internet connection and try again." });
-      } else if (err.response?.status === 401) {
-        console.log("📝 AddClient - 401 Unauthorized - Token may be expired");
-        alert("Your session has expired. Please login again.");
-        localStorage.clear();
-        navigate("/login");
-      } else if (err.response?.status === 400) {
-        console.log("📝 AddClient - 400 Bad Request");
-        setErrors(err.response.data.errors || { general: "Please check your input and try again." });
-      } else if (err.response?.status === 500) {
-        console.log("📝 AddClient - 500 Server Error");
-        setErrors({ general: "Server error. Please try again later." });
-      } else {
-        console.log("📝 AddClient - Unknown error");
-        setErrors({ general: "Error adding client. Please try again." });
-      }
-    } finally {
-      setLoading(false);
-      console.log("📝 AddClient - Submission completed");
+  } catch (err) {
+    console.error("📝 AddClient - Error caught:", err);
+
+    // Only log out if token is actually missing or expired
+    if (
+      err.response?.status === 401 &&
+      err.response.data.message?.toLowerCase().includes("token")
+    ) {
+      alert("Your session has expired. Please login again.");
+      localStorage.clear();
+      navigate("/login");
+      return;
     }
-  };
+
+    // Handle validation errors (400)
+    if (err.response?.status === 400) {
+      setErrors(err.response.data.errors || { general: "Please check your input and try again." });
+    } 
+    // Server error
+    else if (err.response?.status === 500) {
+      setErrors({ general: "Server error. Please try again later." });
+    } 
+    // Network error
+    else if (err.code === 'ERR_NETWORK') {
+      setErrors({ general: "Network error. Check your connection and try again." });
+    } 
+    // Unknown errors
+    else {
+      setErrors({ general: "Error adding client. Please try again." });
+    }
+  } finally {
+    setLoading(false);
+    console.log("📝 AddClient - Submission completed");
+  }
+};
+
 
   // Also add this to test the token manually
   const testToken = () => {
