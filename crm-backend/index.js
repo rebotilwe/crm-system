@@ -5,7 +5,7 @@ const db = require("./db");
 const multer = require("multer");
 const upload = multer({ dest: "uploads/" });
 const fs = require("fs");
-const { parse } = require("csv-parse");
+const { parse } = require("csv-parse/sync"); // Use the sync version for simpler logic
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
@@ -197,22 +197,20 @@ app.post("/api/clients", verifyToken, async (req, res) => {
   }
 });
 // Get all clients / search
+// Updated Get All Clients (Added date filtering capability)
 app.get("/api/clients", verifyToken, async (req, res) => {
-  const search = req.query.search;
-
-  let sql = "SELECT * FROM clients";
+  const { search, startDate, endDate } = req.query;
+  let sql = "SELECT * FROM clients WHERE 1=1";
   const params = [];
 
   if (search) {
-    sql += `
-      WHERE business_name LIKE ?
-      OR owner_name LIKE ?
-      OR owner_phone LIKE ?
-      OR landline LIKE ?
-    `;
+    sql += " AND (business_name LIKE ? OR owner_name LIKE ?)";
+    params.push(`%${search}%`, `%${search}%`);
+  }
 
-    const value = `%${search}%`;
-    params.push(value, value, value, value);
+  if (startDate && endDate) {
+    sql += " AND created_at BETWEEN ? AND ?";
+    params.push(startDate, endDate);
   }
 
   try {
@@ -222,7 +220,6 @@ app.get("/api/clients", verifyToken, async (req, res) => {
     res.status(500).json({ error: "Database error" });
   }
 });
-
 // Update client
 app.put("/api/clients/:id", verifyToken, async (req, res) => {
   const {
@@ -342,81 +339,58 @@ app.delete("/api/clients/:id", verifyToken, async (req, res) => {
 });
 
 // Upload CSV
-app.post(
-  "/api/clients/upload",
-  verifyToken,
-  upload.single("file"),
-  async (req, res) => {
+app.post("/api/clients/upload", verifyToken, upload.single("file"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
-    if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
+  try {
+    const fileContent = fs.readFileSync(req.file.path);
+    
+    // Use the sync parser so it behaves nicely with your try/catch
+    const records = parse(fileContent, { 
+      columns: true, 
+      trim: true,
+      skip_empty_lines: true 
+    });
+
+    const validRecords = records.filter(r => r.business_name && r.owner_name);
+
+    if (validRecords.length === 0) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: "No valid data found" });
     }
 
-    try {
-      const fileContent = fs.readFileSync(req.file.path);
+    const sql = `INSERT INTO clients (business_name, owner_name, owner_phone, landline, owner_email, physical_address, postal_address, security_complement, additional_requirements) VALUES ?`;
 
-      parse(fileContent, { columns: true, trim: true }, async (err, records) => {
+    const values = validRecords.map(c => [
+      c.business_name,
+      c.owner_name,
+      c.owner_phone,
+      c.landline || "",
+      c.owner_email || "",
+      c.physical_address || "",
+      c.postal_address || "",
+      c.security_complement || "",
+      c.additional_requirements || "",
+    ]);
 
-        if (err) throw err;
+    await db.query(sql, [values]);
+    
+    // Clean up file
+    fs.unlinkSync(req.file.path);
 
-        const validRecords = records.filter(
-          r => r.business_name && r.owner_name
-        );
+    // Log activity
+    await db.query(
+       "INSERT INTO activity_logs (user_id, action_type, action, details) VALUES (?, 'upload', 'Bulk upload completed', ?)",
+       [req.user.id, `Uploaded ${validRecords.length} clients`]
+    );
 
-        if (validRecords.length === 0) {
-          fs.unlinkSync(req.file.path);
-          return res.status(400).json({ error: "No valid data found" });
-        }
+    res.json({ message: "Upload successful", count: validRecords.length });
 
-        const sql = `
-          INSERT INTO clients
-          (business_name, owner_name, owner_phone, landline, owner_email,
-           physical_address, postal_address, security_complement, additional_requirements)
-          VALUES ?
-        `;
-
-        const values = validRecords.map(c => [
-          c.business_name,
-          c.owner_name,
-          c.owner_phone,
-          c.landline || "",
-          c.owner_email || "",
-          c.physical_address || "",
-          c.postal_address || "",
-          c.security_complement || "",
-          c.additional_requirements || "",
-        ]);
-
-        await db.query(sql, [values]);
-
-        fs.unlinkSync(req.file.path);
-
-        // Log the upload activity
-        try {
-          await db.query(
-            "INSERT INTO activity_logs (user_id, action_type, action, details) VALUES (?, 'upload', 'Bulk upload completed', ?)",
-            [req.user.id, `Uploaded ${validRecords.length} clients via CSV`]
-          );
-        } catch (logErr) {
-          console.error("Failed to log activity:", logErr);
-        }
-
-        res.json({
-          message: "Upload successful",
-          count: validRecords.length,
-        });
-      });
-
-    } catch (err) {
-      if (fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-
-      res.status(500).json({ error: err.message });
-    }
+  } catch (err) {
+    if (req.file) fs.unlinkSync(req.file.path);
+    res.status(500).json({ error: "Error processing CSV: " + err.message });
   }
-);
-
+});
 /* =====================
    Dashboard
 ===================== */
@@ -735,6 +709,15 @@ app.put("/api/auth/preferences", verifyToken, async (req, res) => {
    Admin Management (PROTECTED)
 ===================== */
 
+/* =====================
+   Middleware: Role Check
+===================== */
+const verifyRole = (roles) => (req, res, next) => {
+  if (!roles.includes(req.user.role)) {
+    return res.status(403).json({ message: "Access denied: Unauthorized role" });
+  }
+  next();
+};
 // Get all admins
 // Update this specific route in your server.js
 app.get("/api/admins", verifyToken, async (req, res) => {
@@ -746,6 +729,17 @@ app.get("/api/admins", verifyToken, async (req, res) => {
   } catch (err) {
     console.error("Fetch Admins Error:", err.message);
     res.status(500).json({ error: "Failed to fetch administrators" });
+  }
+});
+// Protected Admin Route (Only Super Admins can see the full list)
+app.get("/api/admins", verifyToken, verifyRole(['super_admin']), async (req, res) => {
+  try {
+    const [results] = await db.query(
+      "SELECT id, name, email, role, is_active, last_login FROM users"
+    );
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch admins" });
   }
 });
 // Add new admin
