@@ -420,32 +420,31 @@ app.get("/api/dashboard/stats", verifyToken, async (req, res) => {
 // Clients per month endpoint
 app.get("/api/dashboard/clients-per-month", verifyToken, async (req, res) => {
   try {
-    const query = `
+    // This query generates the last 6 months dynamically for MySQL
+    const sql = `
       SELECT 
-        DATE_FORMAT(created_at, '%b') as name,
-        MONTH(created_at) as month_num,
-        YEAR(created_at) as year,
-        COUNT(*) as clients
-      FROM clients
-      WHERE created_at IS NOT NULL
-      GROUP BY YEAR(created_at), MONTH(created_at), DATE_FORMAT(created_at, '%b')
-      ORDER BY YEAR(created_at) DESC, MONTH(created_at) DESC
-      LIMIT 12
+        DATE_FORMAT(m.month, '%b') AS name,
+        COUNT(c.id) AS clients,
+        25 AS target
+      FROM (
+        SELECT CURDATE() - INTERVAL 5 MONTH AS month UNION 
+        SELECT CURDATE() - INTERVAL 4 MONTH UNION 
+        SELECT CURDATE() - INTERVAL 3 MONTH UNION 
+        SELECT CURDATE() - INTERVAL 2 MONTH UNION 
+        SELECT CURDATE() - INTERVAL 1 MONTH UNION 
+        SELECT CURDATE()
+      ) AS m
+      LEFT JOIN clients c ON DATE_FORMAT(c.created_at, '%Y-%m') = DATE_FORMAT(m.month, '%Y-%m')
+      GROUP BY m.month
+      ORDER BY m.month ASC;
     `;
-
-    const [results] = await db.query(query);
-    
-    if (results.length === 0) {
-      return res.json([]);
-    }
-
-    res.json(results.reverse());
+    const [rows] = await db.query(sql);
+    res.json(rows);
   } catch (err) {
-    console.error("Error fetching monthly clients:", err);
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch chart data" });
   }
 });
-
 /* =====================
    Activity Logs
 ===================== */
