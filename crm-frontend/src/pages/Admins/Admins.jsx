@@ -11,7 +11,8 @@ import {
   AlertCircle,
   Loader2,
   CheckCircle2,
-  Power
+  Power,
+  Clock
 } from "lucide-react";
 import "./Admins.css";
 
@@ -66,7 +67,6 @@ const Admins = () => {
 
   const toggleStatus = async (id, currentStatus) => {
     try {
-      // Logic: if currentStatus is 1 (true), send 0 (false)
       await api.patch(`/admins/${id}/status`, { is_active: currentStatus ? 0 : 1 });
       fetchAdmins();
     } catch (err) {
@@ -90,6 +90,17 @@ const Admins = () => {
 
   const getInitials = (name) => {
     return name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : "??";
+  };
+
+  const formatLastLogin = (dateString) => {
+    if (!dateString) return "Never";
+    const date = new Date(dateString);
+    return date.toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   return (
@@ -153,6 +164,7 @@ const Admins = () => {
                   <tr>
                     <th>Staff Member</th>
                     <th>Role</th>
+                    <th>Last Seen</th>
                     <th>Status & Actions</th>
                   </tr>
                 </thead>
@@ -172,6 +184,12 @@ const Admins = () => {
                         <span className={`role-badge ${admin.role?.toLowerCase()}`}>
                           {admin.role?.replace('_', ' ')}
                         </span>
+                      </td>
+                      <td>
+                        <div className="last-login-cell">
+                          <Clock size={12} />
+                          <span className="last-seen-text">{formatLastLogin(admin.last_login)}</span>
+                        </div>
                       </td>
                       <td>
                         <div className="action-buttons">

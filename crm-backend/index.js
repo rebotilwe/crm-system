@@ -64,6 +64,7 @@ app.get("/test-db", async (req, res) => {
    Auth
 ===================== */
 
+// LOGIN ROUTE (Updated to record last_login)
 app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -86,12 +87,14 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     const user = results[0];
-
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
+
+    // --- NEW: Update last_login timestamp in DB ---
+    await db.query("UPDATE users SET last_login = NOW() WHERE id = ?", [user.id]);
 
     const token = jwt.sign(
       { id: user.id, role: user.role },
@@ -99,7 +102,7 @@ app.post("/api/auth/login", async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    // Log the login activity
+    // Log activity
     try {
       await db.query(
         "INSERT INTO activity_logs (user_id, action_type, action, details, ip_address) VALUES (?, 'login', 'User logged in', ?, ?)",
@@ -107,7 +110,6 @@ app.post("/api/auth/login", async (req, res) => {
       );
     } catch (logErr) {
       console.error("Failed to log activity:", logErr);
-      // Don't fail the login if logging fails
     }
 
     res.json({
@@ -124,7 +126,6 @@ app.post("/api/auth/login", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
-
 /* =====================
    Clients (PROTECTED)
 ===================== */
@@ -735,11 +736,11 @@ app.put("/api/auth/preferences", verifyToken, async (req, res) => {
 ===================== */
 
 // Get all admins
+// Update this specific route in your server.js
 app.get("/api/admins", verifyToken, async (req, res) => {
   try {
-    // Only return non-sensitive info
     const [results] = await db.query(
-      "SELECT id, name, email, role, created_at FROM users WHERE role IN ('admin', 'super_admin', 'controller') ORDER BY created_at DESC"
+      "SELECT id, name, email, role, is_active, last_login, created_at FROM users WHERE role IN ('admin', 'super_admin', 'controller') ORDER BY created_at DESC"
     );
     res.json(results);
   } catch (err) {
@@ -747,7 +748,6 @@ app.get("/api/admins", verifyToken, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch administrators" });
   }
 });
-
 // Add new admin
 app.post("/api/admins", verifyToken, async (req, res) => {
   const { name, email, password, role } = req.body;

@@ -559,3 +559,14 @@ select.form-input {
 .btn-delete-icon:hover {
   color: #ef4444;
 }
+.last-login-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+}
+
+.last-seen-text {
+  font-size: 0.8rem;
+  font-family: 'Inter', sans-serif;
+}
