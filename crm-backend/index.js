@@ -452,39 +452,21 @@ app.get("/api/dashboard/clients-per-month", verifyToken, async (req, res) => {
 // Get recent activity for dashboard
 app.get("/api/activity/recent", verifyToken, async (req, res) => {
   try {
-    const query = `
+    // Join with users table to get the name of the person who performed the action
+    const sql = `
       SELECT 
-        al.id,
-        al.action_type as type,
-        al.action,
-        al.details,
-        al.client_name as client,
-        al.created_at,
-        u.name as user_name
-      FROM activity_logs al
-      LEFT JOIN users u ON al.user_id = u.id
-      ORDER BY al.created_at DESC
+        id, 
+        action, 
+        client_name as client, 
+        action_type as type, 
+        created_at 
+      FROM activity_logs 
+      ORDER BY created_at DESC 
       LIMIT 10
     `;
-
-    const [results] = await db.query(query);
-    
-    const formattedResults = results.map(log => {
-      const timeAgo = formatTimeAgo(log.created_at);
-      
-      return {
-        id: log.id,
-        action: log.action,
-        client: log.client || 'System',
-        time: timeAgo,
-        type: log.type || 'info',
-        user: log.user_name
-      };
-    });
-
-    res.json(formattedResults);
+    const [rows] = await db.query(sql);
+    res.json(rows);
   } catch (err) {
-    console.error("Error fetching recent activity:", err);
     res.status(500).json({ error: err.message });
   }
 });
