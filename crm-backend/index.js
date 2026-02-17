@@ -396,23 +396,24 @@ app.post("/api/clients/upload", verifyToken, upload.single("file"), async (req, 
 ===================== */
 
 // SINGLE dashboard stats endpoint (duplicate removed)
+// Update this route in your server.js
 app.get("/api/dashboard/stats", verifyToken, async (req, res) => {
   try {
-    const [clientRes] = await db.query(
-      "SELECT COUNT(*) AS totalClients FROM clients"
-    );
-
-    const [adminRes] = await db.query(
-      "SELECT COUNT(*) AS totalAdmins FROM users WHERE role = 'admin'"
+    // Count total clients
+    const [clientCount] = await db.query("SELECT COUNT(*) as count FROM clients");
+    
+    // Count total admins (super_admin and admin)
+    const [adminCount] = await db.query(
+      "SELECT COUNT(*) as count FROM users WHERE role IN ('super_admin', 'admin') AND is_active = 1"
     );
 
     res.json({
-      clients: clientRes[0].totalClients,
-      admins: adminRes[0].totalAdmins,
+      clients: clientCount[0].count,
+      admins: adminCount[0].count
     });
-
   } catch (err) {
-    res.status(500).json(err);
+    console.error("Dashboard Stats Error:", err.message);
+    res.status(500).json({ message: "Error fetching dashboard statistics" });
   }
 });
 
