@@ -130,6 +130,10 @@ app.post("/api/auth/login", async (req, res) => {
 
 // Add client
 // In your server.js, update the /api/clients POST route
+/* =====================
+   Clients (PROTECTED)
+===================== */
+
 app.post("/api/clients", verifyToken, async (req, res) => {
   const {
     business_name,
@@ -142,6 +146,11 @@ app.post("/api/clients", verifyToken, async (req, res) => {
     security_complement,
     additional_requirements,
   } = req.body;
+
+  // Basic validation
+  if (!business_name || !owner_name || !owner_phone) {
+    return res.status(400).json({ message: "Missing required fields" });
+  }
 
   const sql = `
     INSERT INTO clients 
@@ -163,30 +172,26 @@ app.post("/api/clients", verifyToken, async (req, res) => {
       additional_requirements,
     ]);
 
-    // Log the add client activity
+    // Log activity (wrapped in its own try/catch so it doesn't break the main response)
     try {
       await db.query(
         "INSERT INTO activity_logs (user_id, action_type, action, details, client_name, client_id) VALUES (?, 'add', 'New client added', ?, ?, ?)",
         [req.user.id, `Added client: ${business_name}`, business_name, result.insertId]
       );
     } catch (logErr) {
-      console.error("Failed to log activity:", logErr);
-      // Don't fail the request if logging fails
+      console.error("Non-critical Log Error:", logErr.message);
     }
 
-    // IMPORTANT: Send a success response with 201 status
-    res.status(201).json({
+    // Explicitly send 201 Created
+    return res.status(201).json({
+      success: true,
       message: "Client added successfully",
-      id: result.insertId,
-      client: {
-        id: result.insertId,
-        business_name
-      }
+      client_id: result.insertId
     });
 
   } catch (err) {
-    console.error("Error adding client:", err);
-    res.status(500).json({ error: err.message });
+    console.error("Database Error:", err.message);
+    return res.status(500).json({ message: "Failed to add client to database" });
   }
 });
 // Get all clients / search

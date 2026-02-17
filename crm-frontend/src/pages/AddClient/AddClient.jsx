@@ -1,6 +1,6 @@
 // src/pages/AddClient/AddClient.jsx
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../api/axios"; // Import our custom axios instance
 import { useNavigate } from "react-router-dom";
 import { 
   Building2, 
@@ -18,8 +18,6 @@ import {
   AlertCircle,
   Briefcase,
   Home,
-  Globe,
-  Hash,
   X
 } from "lucide-react";
 import "./AddClient.css";
@@ -43,16 +41,9 @@ const AddClient = () => {
   const [currentSection, setCurrentSection] = useState(0);
   const navigate = useNavigate();
 
-  // Debug mount
-  useEffect(() => {
-    console.log("📝 AddClient - Component mounted");
-    console.log("📝 AddClient - Token exists:", !!localStorage.getItem("token"));
-  }, []);
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
-    // Clear error for this field when user starts typing
     if (errors[name]) {
       setErrors({ ...errors, [name]: "" });
     }
@@ -60,143 +51,54 @@ const AddClient = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    
-    if (!formData.business_name?.trim()) {
-      newErrors.business_name = "Business name is required";
-    }
-    if (!formData.owner_name?.trim()) {
-      newErrors.owner_name = "Owner name is required";
-    }
+    if (!formData.business_name?.trim()) newErrors.business_name = "Business name is required";
+    if (!formData.owner_name?.trim()) newErrors.owner_name = "Owner name is required";
     if (!formData.owner_phone?.trim()) {
       newErrors.owner_phone = "Owner phone is required";
     } else if (!/^[0-9+\-\s()]+$/.test(formData.owner_phone)) {
       newErrors.owner_phone = "Please enter a valid phone number";
     }
-    
-    if (formData.owner_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.owner_email)) {
-      newErrors.owner_email = "Please enter a valid email address";
-    }
-
     return newErrors;
   };
 
- const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  console.log("📝 AddClient - Starting submission");
-  console.log("📝 AddClient - Form data:", formData);
-
-  // Validate form
-  const newErrors = validateForm();
-  if (Object.keys(newErrors).length > 0) {
-    console.log("📝 AddClient - Validation errors:", newErrors);
-    setErrors(newErrors);
-    const firstErrorField = document.querySelector('[data-error="true"]');
-    if (firstErrorField) {
-      firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-    return;
-  }
-
-  setLoading(true);
-  setErrors({});
-  setSuccessMessage("");
-
-  try {
-    const token = localStorage.getItem("token");
-    console.log("📝 AddClient - Token exists:", !!token);
-
-    if (!token) {
-      alert("Session expired. Please login again.");
-      navigate("/login");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    const newErrors = validateForm();
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
-    const res = await axios.post(
-      "https://crm-system-staging-626e.up.railway.app/api/clients",
-      formData,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
+    setLoading(true);
+    setErrors({});
+
+    try {
+      // The interceptor automatically handles the Token and the Base URL
+      const res = await api.post("/clients", formData);
+
+      // Success logic
+      setSuccessMessage(`Client "${formData.business_name}" added successfully!`);
+      
+      // Smooth redirect to dashboard after showing success message
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 2000);
+
+    } catch (err) {
+      console.error("AddClient Error:", err);
+      
+      // We NO LONGER clear localStorage here. 
+      // The Interceptor handles 401s globally.
+      if (err.response?.status === 400) {
+        setErrors(err.response.data.errors || { general: "Please check your input." });
+      } else {
+        setErrors({ general: err.response?.data?.message || "Failed to add client. Please try again." });
       }
-    );
-
-    console.log("📝 AddClient - Response received:", res.data);
-
-    // ✅ Success: show message
-    setSuccessMessage(`Client "${formData.business_name}" added successfully!`);
-
-    // Optional: reset form for next client
-    setFormData({
-      business_name: "",
-      owner_name: "",
-      owner_phone: "",
-      landline: "",
-      owner_email: "",
-      physical_address: "",
-      postal_address: "",
-      security_complement: "",
-      additional_requirements: "",
-    });
-
-    // Optional: redirect after 2 seconds
-    setTimeout(() => {
-      navigate("/"); // Redirect to client list or dashboard
-    }, 2000);
-
-  } catch (err) {
-    console.error("📝 AddClient - Error caught:", err);
-
-    // Only log out if token is actually missing or expired
-    if (
-      err.response?.status === 401 &&
-      err.response.data.message?.toLowerCase().includes("token")
-    ) {
-      alert("Your session has expired. Please login again.");
-      localStorage.clear();
-      navigate("/login");
-      return;
-    }
-
-    // Handle validation errors (400)
-    if (err.response?.status === 400) {
-      setErrors(err.response.data.errors || { general: "Please check your input and try again." });
-    } 
-    // Server error
-    else if (err.response?.status === 500) {
-      setErrors({ general: "Server error. Please try again later." });
-    } 
-    // Network error
-    else if (err.code === 'ERR_NETWORK') {
-      setErrors({ general: "Network error. Check your connection and try again." });
-    } 
-    // Unknown errors
-    else {
-      setErrors({ general: "Error adding client. Please try again." });
-    }
-  } finally {
-    setLoading(false);
-    console.log("📝 AddClient - Submission completed");
-  }
-};
-
-
-  // Also add this to test the token manually
-  const testToken = () => {
-    const token = localStorage.getItem("token");
-    console.log("📝 AddClient - Manual token check:", token ? "✅ Present" : "❌ Missing");
-    if (token) {
-      console.log("📝 AddClient - Token length:", token.length);
-      console.log("📝 AddClient - Token preview:", token.substring(0, 20) + "...");
+    } finally {
+      setLoading(false);
     }
   };
-
-  // Call testToken when component mounts
-  useEffect(() => {
-    testToken();
-  }, []);
 
   const formSections = [
     {
@@ -205,21 +107,8 @@ const AddClient = () => {
       icon: <Building2 />,
       description: "Enter the primary business details",
       fields: [
-        { 
-          name: "business_name", 
-          label: "Business Name", 
-          icon: <Briefcase />, 
-          placeholder: "e.g., ABC Corporation", 
-          required: true,
-          type: "text"
-        },
-        { 
-          name: "security_complement", 
-          label: "Security Complement", 
-          icon: <Shield />, 
-          placeholder: "e.g., 24/7 Surveillance, Armed Response",
-          type: "text"
-        },
+        { name: "business_name", label: "Business Name", icon: <Briefcase />, placeholder: "e.g., ABC Corporation", required: true },
+        { name: "security_complement", label: "Security Complement", icon: <Shield />, placeholder: "e.g., 24/7 Surveillance" },
       ]
     },
     {
@@ -228,21 +117,8 @@ const AddClient = () => {
       icon: <User />,
       description: "Contact details of the primary owner",
       fields: [
-        { 
-          name: "owner_name", 
-          label: "Owner Name", 
-          icon: <User />, 
-          placeholder: "Full name of owner", 
-          required: true,
-          type: "text"
-        },
-        { 
-          name: "owner_email", 
-          label: "Owner Email", 
-          icon: <Mail />, 
-          placeholder: "owner@example.com", 
-          type: "email"
-        },
+        { name: "owner_name", label: "Owner Name", icon: <User />, placeholder: "Full name", required: true },
+        { name: "owner_email", label: "Owner Email", icon: <Mail />, placeholder: "owner@example.com", type: "email" },
       ]
     },
     {
@@ -251,21 +127,8 @@ const AddClient = () => {
       icon: <Phone />,
       description: "Primary contact numbers",
       fields: [
-        { 
-          name: "owner_phone", 
-          label: "Owner Phone", 
-          icon: <Phone />, 
-          placeholder: "e.g., 0777 123 456", 
-          required: true,
-          type: "tel"
-        },
-        { 
-          name: "landline", 
-          label: "Landline", 
-          icon: <Landmark />, 
-          placeholder: "e.g., 0112 345 678",
-          type: "tel"
-        },
+        { name: "owner_phone", label: "Owner Phone", icon: <Phone />, placeholder: "e.g., 0777 123 456", required: true, type: "tel" },
+        { name: "landline", label: "Landline", icon: <Landmark />, placeholder: "e.g., 0112 345 678", type: "tel" },
       ]
     },
     {
@@ -274,65 +137,41 @@ const AddClient = () => {
       icon: <MapPin />,
       description: "Physical and postal addresses",
       fields: [
-        { 
-          name: "physical_address", 
-          label: "Physical Address", 
-          icon: <Home />, 
-          placeholder: "Street address, city, province",
-          type: "text"
-        },
-        { 
-          name: "postal_address", 
-          label: "Postal Address", 
-          icon: <Mail />, 
-          placeholder: "P.O. Box, city, postal code",
-          type: "text"
-        },
+        { name: "physical_address", label: "Physical Address", icon: <Home />, placeholder: "Street address, city" },
+        { name: "postal_address", label: "Postal Address", icon: <Mail />, placeholder: "P.O. Box" },
       ]
     },
     {
       id: "additional",
       title: "Additional Information",
       icon: <FileText />,
-      description: "Any special requirements or notes",
+      description: "Special requirements or notes",
       fields: [
-        { 
-          name: "additional_requirements", 
-          label: "Additional Requirements", 
-          icon: <FileText />, 
-          placeholder: "Any special requirements, notes, or instructions...",
-          type: "textarea"
-        },
+        { name: "additional_requirements", label: "Requirements", icon: <FileText />, placeholder: "Any special instructions...", type: "textarea" },
       ]
     }
   ];
 
-  const getSectionStatus = (sectionIndex) => {
-    const section = formSections[sectionIndex];
+  const getSectionStatus = (index) => {
+    const section = formSections[index];
     const requiredFields = section.fields.filter(f => f.required).map(f => f.name);
     const filledRequired = requiredFields.every(field => formData[field]?.trim());
     
     if (filledRequired) return "completed";
-    if (sectionIndex === currentSection) return "current";
-    return "pending";
+    return index === currentSection ? "current" : "pending";
   };
 
   return (
     <div className="add-client-container">
-      {/* Header with Back Button */}
       <div className="page-header">
         <div className="header-left">
-          <button className="back-button" onClick={() => navigate("/")}>
+          <button className="back-button" onClick={() => navigate("/dashboard")}>
             <ArrowLeft size={20} />
           </button>
           <div>
             <h1 className="page-title">Add New Client</h1>
             <p className="page-subtitle">Enter the client details to create a new record</p>
           </div>
-        </div>
-        <div className="header-badge">
-          <Shield size={16} />
-          <span>Secure Form</span>
         </div>
       </div>
 
@@ -345,143 +184,72 @@ const AddClient = () => {
             onClick={() => setCurrentSection(index)}
           >
             <div className="step-indicator">
-              {getSectionStatus(index) === 'completed' ? (
-                <CheckCircle size={16} />
-              ) : (
-                <span>{index + 1}</span>
-              )}
+              {getSectionStatus(index) === 'completed' ? <CheckCircle size={16} /> : <span>{index + 1}</span>}
             </div>
             <span className="step-label">{section.title}</span>
           </div>
         ))}
       </div>
 
-      {/* Success Message */}
+      {/* Messages */}
       {successMessage && (
         <div className="alert success">
           <CheckCircle size={20} />
           <span>{successMessage}</span>
-          <button className="close-alert" onClick={() => setSuccessMessage("")}>
-            <X size={16} />
-          </button>
+          <button className="close-alert" onClick={() => setSuccessMessage("")}><X size={16} /></button>
         </div>
       )}
 
-      {/* General Error */}
       {errors.general && (
         <div className="alert error">
           <AlertCircle size={20} />
           <span>{errors.general}</span>
-          <button className="close-alert" onClick={() => setErrors({})}>
-            <X size={16} />
-          </button>
+          <button className="close-alert" onClick={() => setErrors({})}><X size={16} /></button>
         </div>
       )}
 
       <form onSubmit={handleSubmit}>
-        {/* Form Sections */}
         {formSections.map((section, idx) => (
-          <div 
-            key={idx} 
-            className={`form-section ${idx === currentSection ? 'expanded' : 'collapsed'}`}
-          >
-            <div 
-              className="section-header"
-              onClick={() => setCurrentSection(idx)}
-            >
+          <div key={idx} className={`form-section ${idx === currentSection ? 'expanded' : 'collapsed'}`}>
+            <div className="section-header" onClick={() => setCurrentSection(idx)}>
               <div className="section-header-left">
-                <div className={`section-icon ${getSectionStatus(idx)}`}>
-                  {section.icon}
-                </div>
+                <div className={`section-icon ${getSectionStatus(idx)}`}>{section.icon}</div>
                 <div>
                   <h2>{section.title}</h2>
                   <p className="section-description">{section.description}</p>
                 </div>
-              </div>
-              <div className="section-status">
-                {getSectionStatus(idx) === 'completed' && (
-                  <span className="status-badge completed">
-                    <CheckCircle size={14} />
-                    Completed
-                  </span>
-                )}
-                {idx === currentSection && (
-                  <span className="status-badge current">Current</span>
-                )}
               </div>
             </div>
             
             <div className="section-content">
               <div className="form-grid">
                 {section.fields.map((field) => (
-                  <div 
-                    key={field.name} 
-                    className={`form-group ${field.name === "additional_requirements" ? "full-width" : ""}`}
-                    data-error={!!errors[field.name]}
-                  >
+                  <div key={field.name} className={`form-group ${field.type === "textarea" ? "full-width" : ""}`}>
                     <label className="form-label">
-                      {field.label}
-                      {field.required && <span className="required-asterisk">*</span>}
+                      {field.label} {field.required && <span className="required-asterisk">*</span>}
                     </label>
                     <div className={`input-wrapper ${errors[field.name] ? 'error' : ''}`}>
                       <span className="input-icon">{field.icon}</span>
                       {field.type === 'textarea' ? (
-                        <textarea
-                          name={field.name}
-                          value={formData[field.name]}
-                          onChange={handleChange}
-                          placeholder={field.placeholder}
-                          className="form-input"
-                          rows={4}
-                        />
+                        <textarea name={field.name} value={formData[field.name]} onChange={handleChange} placeholder={field.placeholder} className="form-input" rows={4} />
                       ) : (
-                        <input
-                          type={field.type || "text"}
-                          name={field.name}
-                          value={formData[field.name]}
-                          onChange={handleChange}
-                          required={field.required}
-                          placeholder={field.placeholder}
-                          className="form-input"
-                        />
+                        <input type={field.type || "text"} name={field.name} value={formData[field.name]} onChange={handleChange} placeholder={field.placeholder} className="form-input" />
                       )}
                     </div>
-                    {errors[field.name] && (
-                      <span className="error-message">
-                        <AlertCircle size={12} />
-                        {errors[field.name]}
-                      </span>
-                    )}
-                    {field.name === 'owner_phone' && !errors[field.name] && (
-                      <p className="field-hint">
-                        <Info size={12} />
-                        Format: 0777 123 456 or +27 77 123 4567
-                      </p>
-                    )}
+                    {errors[field.name] && <span className="error-message"><AlertCircle size={12} /> {errors[field.name]}</span>}
                   </div>
                 ))}
               </div>
 
-              {/* Section Navigation */}
               <div className="section-navigation">
                 {idx > 0 && (
-                  <button 
-                    type="button"
-                    className="nav-btn prev"
-                    onClick={() => setCurrentSection(idx - 1)}
-                  >
-                    <ArrowLeft size={16} />
-                    Previous
+                  <button type="button" className="nav-btn prev" onClick={() => setCurrentSection(idx - 1)}>
+                    <ArrowLeft size={16} /> Previous
                   </button>
                 )}
                 {idx < formSections.length - 1 && (
-                  <button 
-                    type="button"
-                    className="nav-btn next"
-                    onClick={() => setCurrentSection(idx + 1)}
-                  >
-                    Next
-                    <ArrowLeft size={16} style={{ transform: 'rotate(180deg)' }} />
+                  <button type="button" className="nav-btn next" onClick={() => setCurrentSection(idx + 1)}>
+                    Next <ArrowLeft size={16} style={{ transform: 'rotate(180deg)' }} />
                   </button>
                 )}
               </div>
@@ -489,54 +257,13 @@ const AddClient = () => {
           </div>
         ))}
 
-        {/* Form Actions */}
         <div className="form-actions">
-          <button type="button" onClick={() => navigate("/")} className="btn-cancel">
-            Cancel
-          </button>
+          <button type="button" onClick={() => navigate("/dashboard")} className="btn-cancel">Cancel</button>
           <button type="submit" disabled={loading} className="btn-submit">
-            {loading ? (
-              <>
-                <span className="spinner"></span>
-                Adding Client...
-              </>
-            ) : (
-              <>
-                <Save size={18} />
-                Add Client
-              </>
-            )}
+            {loading ? <><span className="spinner"></span> Adding...</> : <><Save size={18} /> Add Client</>}
           </button>
         </div>
       </form>
-
-      {/* Tips Card */}
-      <div className="tips-card">
-        <div className="tips-icon">
-          <Info size={20} />
-        </div>
-        <div className="tips-content">
-          <h3 className="tips-title">Quick Tips:</h3>
-          <ul className="tips-list">
-            <li>
-              <CheckCircle size={14} />
-              <span>Business Name, Owner Name, and Owner Phone are required fields</span>
-            </li>
-            <li>
-              <CheckCircle size={14} />
-              <span>Include country code for international phone numbers (+27 for South Africa)</span>
-            </li>
-            <li>
-              <CheckCircle size={14} />
-              <span>You can edit client details later from the client list</span>
-            </li>
-            <li>
-              <CheckCircle size={14} />
-              <span>All information is encrypted and secure</span>
-            </li>
-          </ul>
-        </div>
-      </div>
     </div>
   );
 };
