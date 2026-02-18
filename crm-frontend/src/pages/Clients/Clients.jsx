@@ -38,13 +38,13 @@ const Clients = () => {
   return (
     <div className="client-details-page">
     {/* Back Button */}
-<button
+{/* <button
   className="back-btn"
   onClick={() => navigate("/search")}
   aria-label="Go back"
 >
   <ArrowLeft size={22} />
-</button>
+</button> */}
 
       <div className="details-card">
         <header className="details-header">

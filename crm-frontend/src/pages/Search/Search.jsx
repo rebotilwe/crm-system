@@ -701,7 +701,7 @@ const Search = () => {
 
                   <div className="mobile-actions">
                     <button
-                      onClick={() => navigate(`/client/${c.id}`)}
+                      onClick={() => navigate(`/clients/${c.id}`)}
                       className="btn-view"
                     >
                       <Eye size={16} />

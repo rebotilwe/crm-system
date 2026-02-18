@@ -295,14 +295,7 @@ const EditClient = () => {
           </div>
           <h2>Unable to Load Client</h2>
           <p className="error-message">{error}</p>
-          <div className="error-actions">
-            <button onClick={() => window.location.reload()} className="btn-retry">
-              Try Again
-            </button>
-            <button onClick={() => navigate("/")} className="btn-home">
-              Go to Directory
-            </button>
-          </div>
+        
         </div>
       </div>
     );
@@ -314,9 +307,9 @@ const EditClient = () => {
       <div className="page-header">
         <div className="header-content">
           <div className="header-left">
-            <button onClick={() => navigate(`/client/${id}`)} className="back-btn">
+            {/* <button onClick={() => navigate(`/client/${id}`)} className="back-btn">
               <ArrowLeft size={20} />
-            </button>
+            </button> */}
             <div className="header-icon">
               <Edit3 size={24} />
             </div>
@@ -491,7 +484,8 @@ const EditClient = () => {
                     onClick={() => setCurrentSection(idx + 1)}
                   >
                     Next
-                    <ArrowLeft size={16} style={{ transform: 'rotate(180deg)' }} />
+                 <ArrowLeft size={16} />
+
                   </button>
                 )}
               </div>
