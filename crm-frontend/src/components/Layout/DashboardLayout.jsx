@@ -54,7 +54,7 @@ const DashboardLayout = ({ children }) => {
 
   const menuItems = [
     { name: "Dashboard", path: "/dashboard", icon: <LayoutDashboard size={20} /> },
-    // { name: "Clients", path: "/profile", icon: <Users size={20} /> },
+ 
     { name: "Add Client", path: "/add-client", icon: <Briefcase size={20} /> },
     { name: "Admins", path: "/admins", icon: <UserCog size={20} /> },
     { name: "Upload", path: "/upload-clients", icon: <Upload size={20} /> },

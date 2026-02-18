@@ -95,7 +95,7 @@ const Dashboard = () => {
 
       <div className="stats-grid">
         {/* Total Clients Card */}
-        <div className="stat-card" onClick={() => navigate("/")}>
+        <div className="stat-card" onClick={() => navigate("/search")}>
           <div className="card-header">
             <div className="icon-wrapper blue-bg"><Users /></div>
             <span className="card-badge">Total Clients</span>
@@ -222,7 +222,7 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="quick-grid">
-            <button onClick={() => navigate("/")} className="quick-action-btn">
+            <button onClick={() => navigate("/search")} className="quick-action-btn">
               <div className="icon-wrapper blue-bg"><Search size={18} /></div>
               <div className="quick-action-content">
                 <span className="action-title">Search Clients</span>
@@ -259,9 +259,9 @@ const Dashboard = () => {
               <Clock size={18} />
               <h2>Recent Activity</h2>
             </div>
-            <button className="view-all-btn" onClick={() => navigate("/activity")}>
+            {/* <button className="view-all-btn" onClick={() => navigate("/activity")}>
               View All
-            </button>
+            </button> */}
           </div>
           <div className="activity-list">
             {recentActivity.length > 0 ? (

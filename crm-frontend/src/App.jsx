@@ -12,6 +12,7 @@ import Admins from "./pages/Admins/Admins";
 import Reports from "./pages/Reports/Reports";
 import UserProfile from "./pages/UserProfile/UserProfile"
 import AdminProfile from "./pages/AdminProfile/AdminProfile";
+import Clients from "./pages/Clients/Clients";
 
 function App() {
   return (
@@ -31,7 +32,7 @@ function App() {
       />
 
       <Route
-        path="/clients"
+        path="/search"
         element={
           <ProtectedRoute>
             <Search />
@@ -56,7 +57,14 @@ function App() {
           </ProtectedRoute>
         }
       />
-      
+      <Route
+        path="/clients/:id" // 2. Add this route
+        element={
+          <ProtectedRoute>
+            <Clients />
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/add-client"

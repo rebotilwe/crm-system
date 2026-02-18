@@ -609,7 +609,7 @@ const Search = () => {
                       <td className="client-id">{String(c.id).slice(0, 4)}</td>
                       <td>
                         <button
-                          onClick={() => navigate(`/client/${c.id}`)}
+                          onClick={() => navigate(`/clients/${c.id}`)}
                           className="business-name"
                         >
                           {c.business_name}
@@ -631,7 +631,7 @@ const Search = () => {
                       <td>
                         <div className="action-group">
                           <button
-                            onClick={() => navigate(`/client/${c.id}`)}
+                            onClick={() => navigate(`/clients/${c.id}`)}
                             className="btn-view"
                             title="View Profile"
                           >
@@ -681,7 +681,7 @@ const Search = () => {
 
                   <div className="card-body">
                     <button
-                      onClick={() => navigate(`/client/${c.id}`)}
+                      onClick={() => navigate(`/clients/${c.id}`)}
                       className="client-name-mobile"
                     >
                       {c.business_name}

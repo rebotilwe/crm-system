@@ -825,3 +825,10 @@ textarea.form-input {
     transform: none;
   }
 }
+/* Force Input Text to Be Proper Black */
+.form-input,
+.form-input:focus,
+.form-input:active,
+textarea.form-input {
+  color: #000000 !important;
+}
