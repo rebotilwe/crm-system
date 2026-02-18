@@ -50,12 +50,12 @@ const Sidebar = () => {
       icon: <LayoutDashboard size={20} />,
       roles: ["super_admin", "admin", "user"]
     },
-    { 
-      name: "Clients", 
-      path: "/clients", 
-      icon: <Users size={20} />,
-      roles: ["super_admin", "admin", "user"]
-    },
+    // { 
+    //   name: "Clients", 
+    //   path: "/profile", 
+    //   icon: <Users size={20} />,
+    //   roles: ["super_admin", "admin", "user"]
+    // },
     { 
       name: "Admins", 
       path: "/admins", 

@@ -335,16 +335,20 @@ const AdminProfile = () => {
               </div>
             </div>
 
-            <div className="security-level">
-              <div className="level-header">
-                <Shield size={14} />
-                <span>Security Level</span>
-              </div>
-              <div className="level-bar">
-                <div className="level-progress" style={{ width: '75%' }}></div>
-              </div>
-              <span className="level-text">{userData.securityLevel}</span>
-            </div>
+           <div className="security-level">
+  <div className="level-header">
+    <Shield size={14} />
+    <span>Security Level</span>
+  </div>
+  <div className="level-bar">
+    {/* Dynamic width and color based on role */}
+    <div 
+      className={`level-progress ${userData.role}`} 
+      style={{ width: userData.role === 'super_admin' ? '100%' : '70%' }}
+    ></div>
+  </div>
+  <span className="level-text">{userData.securityLevel}</span>
+</div>
           </div>
 
           {/* Navigation Tabs - Now only 2 tabs */}

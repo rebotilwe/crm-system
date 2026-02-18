@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable"; // Explicit import to fix the TypeError
+import autoTable from "jspdf-autotable";
 import "./Reports.css";
 
 const API_URL = "https://crm-system-staging-626e.up.railway.app";
@@ -32,12 +32,10 @@ const Reports = () => {
 
   const token = localStorage.getItem("token");
 
-  // Fetch initial data
   useEffect(() => {
     fetchData();
   }, []);
 
-  // Re-run filtering whenever dateRange, searchTerm, or the main client list changes
   useEffect(() => {
     applyFilters();
   }, [dateRange, searchTerm, clients]);
@@ -58,39 +56,27 @@ const Reports = () => {
 
   const applyFilters = () => {
     const now = new Date();
-    
     const filtered = clients.filter((c) => {
-      // 1. Search Filter
       const matchesSearch = c.business_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             c.owner_name?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      // 2. Date Filter
       const created = new Date(c.created_at);
       let matchesDate = false;
 
       switch (dateRange) {
-        case "today":
-          matchesDate = created.toDateString() === now.toDateString();
-          break;
+        case "today": matchesDate = created.toDateString() === now.toDateString(); break;
         case "week":
           const weekStart = new Date();
           weekStart.setDate(now.getDate() - 7);
           matchesDate = created >= weekStart;
           break;
         case "month":
-          matchesDate = created.getMonth() === now.getMonth() && 
-                        created.getFullYear() === now.getFullYear();
+          matchesDate = created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
           break;
-        case "year":
-          matchesDate = created.getFullYear() === now.getFullYear();
-          break;
-        case "all":
-          matchesDate = true;
-          break;
-        default:
-          matchesDate = true;
+        case "year": matchesDate = created.getFullYear() === now.getFullYear(); break;
+        case "all": matchesDate = true; break;
+        default: matchesDate = true;
       }
-
       return matchesSearch && matchesDate;
     });
 
@@ -101,8 +87,6 @@ const Reports = () => {
   const calculateStats = (data) => {
     const active = data.filter(c => c.security_complement).length;
     const locations = new Set(data.map(c => c.physical_address).filter(Boolean)).size;
-    
-    // Growth Logic (YTD)
     const startOfYear = new Date(new Date().getFullYear(), 0, 1);
     const clientsAtStart = clients.filter(c => new Date(c.created_at) < startOfYear).length;
     const growth = clientsAtStart === 0 ? data.length * 100 : Math.round(((clients.length - clientsAtStart) / clientsAtStart) * 100);
@@ -123,36 +107,14 @@ const Reports = () => {
 
   const exportToPDF = () => {
     const doc = new jsPDF('l', 'mm', 'a4');
-    
-    // Header
-    doc.setFontSize(18);
-    doc.text("Client Summary Report", 14, 15);
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(`Filter: ${dateRange.toUpperCase()} | Generated: ${new Date().toLocaleString()}`, 14, 22);
-
-    const tableColumn = ["Business Name", "Owner", "Phone", "Security", "Address", "Status"];
-    const tableRows = filteredData.map(c => [
-      c.business_name,
-      c.owner_name,
-      c.owner_phone,
-      c.security_complement || "None",
-      c.physical_address || "N/A",
-      c.security_complement ? "Active" : "Inactive"
-    ]);
-
-    // Use the functional call to autoTable
     autoTable(doc, {
       startY: 30,
-      head: [tableColumn],
-      body: tableRows,
+      head: [["Business Name", "Owner", "Phone", "Security", "Address", "Status"]],
+      body: filteredData.map(c => [c.business_name, c.owner_name, c.owner_phone, c.security_complement || "None", c.physical_address || "N/A", c.security_complement ? "Active" : "Inactive"]),
       theme: 'grid',
-      headStyles: { fillColor: [37, 99, 235], fontSize: 10 },
-      styles: { fontSize: 9 },
-      alternateRowStyles: { fillColor: [245, 247, 250] }
+      headStyles: { fillColor: [37, 99, 235] }
     });
-
-    doc.save(`CRM_Report_${dateRange}_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`Report_${dateRange}.pdf`);
   };
 
   const exportToExcel = () => {
@@ -164,13 +126,12 @@ const Reports = () => {
 
   return (
     <div className="reports-container">
-      {/* Page Header */}
       <div className="page-header">
         <div className="header-left">
           <div className="header-icon"><FileText /></div>
-          <div>
-            <h1 className="page-title">Reports & Analytics</h1>
-            <p className="page-subtitle">Analyze and export client data based on date ranges</p>
+          <div className="header-text">
+            <h1 className="page-title">Analytics</h1>
+            <p className="page-subtitle">Export client data</p>
           </div>
         </div>
 
@@ -179,17 +140,13 @@ const Reports = () => {
             <Search size={18} className="search-icon" />
             <input 
               type="text" 
-              placeholder="Search clients..." 
+              placeholder="Search..." 
               className="report-search"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <select 
-            className="date-select" 
-            value={dateRange} 
-            onChange={(e) => setDateRange(e.target.value)}
-          >
+          <select className="date-select" value={dateRange} onChange={(e) => setDateRange(e.target.value)}>
             <option value="today">Today</option>
             <option value="week">Past 7 Days</option>
             <option value="month">This Month</option>
@@ -199,28 +156,26 @@ const Reports = () => {
         </div>
       </div>
 
-      {/* Stats Overview */}
       <div className="stats-grid">
-        <StatCard icon={<Users />} label="Total Clients" value={stats.totalClients} trend={`${stats.growth}% YTD Growth`} color="blue" />
-        <StatCard icon={<TrendingUp />} label="New (30d)" value={stats.newClients} trend="Recently added" color="green" />
-        <StatCard icon={<Shield />} label="Active Security" value={stats.activeClients} trend="Protected clients" color="purple" />
-        <StatCard icon={<Building2 />} label="Unique Locations" value={stats.topLocations} trend="Cities covered" color="amber" />
+        <StatCard icon={<Users />} label="Total" value={stats.totalClients} trend={`${stats.growth}% Growth`} color="blue" />
+        <StatCard icon={<TrendingUp />} label="New" value={stats.newClients} trend="30 days" color="green" />
+        <StatCard icon={<Shield />} label="Active" value={stats.activeClients} trend="Protected" color="purple" />
+        <StatCard icon={<Building2 />} label="Areas" value={stats.topLocations} trend="Locations" color="amber" />
       </div>
 
-      {/* Report Preview */}
       <div className="report-preview">
         <div className="preview-header">
-          <h3>Data Preview ({filteredData.length} records)</h3>
+          <h3>Records ({filteredData.length})</h3>
           <div className="export-btns">
             <button className="btn-mini" onClick={exportToPDF}><Download size={14}/> PDF</button>
             <button className="btn-mini" onClick={exportToExcel}><Download size={14}/> Excel</button>
           </div>
         </div>
-        <div className="preview-content">
+        <div className="table-wrapper">
           <table className="preview-table">
             <thead>
               <tr>
-                <th>Business Name</th>
+                <th>Business</th>
                 <th>Owner</th>
                 <th>Phone</th>
                 <th>Security</th>
@@ -229,15 +184,15 @@ const Reports = () => {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="5" className="loading-row">Processing data...</td></tr>
+                <tr><td colSpan="5" className="loading-row">Processing...</td></tr>
               ) : filteredData.length > 0 ? (
                 filteredData.map(c => (
                   <tr key={c.id}>
-                    <td><strong>{c.business_name}</strong></td>
-                    <td>{c.owner_name}</td>
-                    <td>{c.owner_phone}</td>
-                    <td>{c.security_complement || "—"}</td>
-                    <td>
+                    <td data-label="Business"><strong>{c.business_name}</strong></td>
+                    <td data-label="Owner">{c.owner_name}</td>
+                    <td data-label="Phone">{c.owner_phone}</td>
+                    <td data-label="Security">{c.security_complement || "—"}</td>
+                    <td data-label="Status">
                       <span className={`status-badge ${c.security_complement ? "active" : "inactive"}`}>
                         {c.security_complement ? "Active" : "Inactive"}
                       </span>
@@ -245,7 +200,7 @@ const Reports = () => {
                   </tr>
                 ))
               ) : (
-                <tr><td colSpan="5" className="empty-row">No matching records found.</td></tr>
+                <tr><td colSpan="5" className="empty-row">No records found.</td></tr>
               )}
             </tbody>
           </table>
@@ -255,7 +210,6 @@ const Reports = () => {
   );
 };
 
-// Sub-component for clean rendering
 const StatCard = ({ icon, label, value, trend, color }) => (
   <div className="stat-card">
     <div className={`stat-icon ${color}`}>{icon}</div>
