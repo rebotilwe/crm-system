@@ -156,10 +156,10 @@ const DashboardLayout = ({ children }) => {
                       <User size={14} />
                       <span>My Profile</span>
                     </button>
-                    {/* <button onClick={() => navigate("/settings")}>
-                      <Settings size={14} />
-                      <span>Settings</span>
-                    </button> */}
+                     <button onClick={handleLogout} className="logout-btn">
+                      <LogOut size={14} />
+                      <span>Sign Out</span>
+                    </button> 
                     
                     <div className="dropdown-divider"></div>
                     
